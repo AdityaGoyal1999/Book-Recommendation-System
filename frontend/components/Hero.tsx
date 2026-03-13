@@ -4,7 +4,7 @@ export function Hero() {
   return (
     <section className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-6 pt-14 text-center">
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
+        <h1 className="font-sans text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
           Detect failures before they hurt your business
         </h1>
         <p className="text-lg text-muted-foreground sm:text-xl">
