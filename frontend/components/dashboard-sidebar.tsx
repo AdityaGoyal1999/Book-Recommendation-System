@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -15,10 +17,32 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Home } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { LayoutDashboard, Home, LogOut } from "lucide-react";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 export function DashboardSidebar({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user: u } }) => setUser(u ?? null));
+  }, []);
+
+  const displayName = user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "User";
+  const email = user?.email ?? "";
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  }
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
@@ -56,7 +80,37 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter />
+        <SidebarFooter>
+          <div className="flex w-full items-center justify-between gap-2 overflow-hidden rounded-md p-2 group-data-[collapsible=icon]:justify-center">
+            <Link
+              href="/dashboard/profile"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center"
+              title={displayName}
+            >
+              <Avatar className="size-8 shrink-0">
+                <AvatarImage src={user?.user_metadata?.avatar_url} alt={displayName} />
+                <AvatarFallback className="text-xs">
+                  {displayName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                <p className="truncate text-sm font-medium text-sidebar-foreground">
+                  {displayName}
+                </p>
+                <p className="truncate text-xs text-sidebar-foreground/80">{email}</p>
+              </div>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="shrink-0 text-sidebar-foreground bg-red-100 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+              aria-label="Log out"
+            >
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+        </SidebarFooter>
       </Sidebar>
       <SidebarInset>
         <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-4">

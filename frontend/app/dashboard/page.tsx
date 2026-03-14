@@ -8,13 +8,7 @@ export default function DashboardPage() {
           Dashboard
         </h1>
         <p className="mt-4 text-muted-foreground">
-          Welcome to Ecom Pulse. Your monitoring dashboard will appear here
-          once you connect a store.
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          <Link href="/" className="font-medium text-primary hover:underline">
-            Back to home
-          </Link>
+          This page is under construction.
         </p>
       </div>
     </div>
