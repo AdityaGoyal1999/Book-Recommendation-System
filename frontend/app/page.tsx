@@ -2,6 +2,8 @@ import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { ProblemAndSolution } from "@/components/ProblemAndSolution";
 import { Features } from "@/components/Features";
+import { Pricing } from "@/components/Pricing";
+import { FAQ } from "@/components/FAQ";
 
 export default function Home() {
   return (
@@ -11,6 +13,8 @@ export default function Home() {
         <Hero />
         <Features />
         <ProblemAndSolution />
+        <Pricing />
+        <FAQ />
       </main>
     </div>
   );
