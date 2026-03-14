@@ -16,15 +16,24 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Home } from "lucide-react";
+import Image from "next/image";
 
 export function DashboardSidebar({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-sidebar-border">
-          <Link href="/dashboard" className="flex items-center gap-2 px-2 py-2 font-semibold text-sidebar-foreground">
-            Ecom Pulse
-          </Link>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                  render={<Link href="/dashboard">
+                    <Image src="/next.svg" alt="Ecom Pulse" width={24} height={24} />
+                    <span>Ecom Pulse</span>
+                  </Link>}
+                tooltip="Ecom Pulse"
+              />
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
