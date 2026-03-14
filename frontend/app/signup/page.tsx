@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { Github, Apple, KeyRound, Lock } from "lucide-react";
+
+const inputClassName =
+  "h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -32,103 +38,134 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
+function AuthForm() {
+  const searchParams = useSearchParams();
+  const isLogin = searchParams.get("mode") === "login";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  return (
+    <div className="space-y-6">
+      <h1 className="font-sans text-2xl font-bold tracking-tight text-foreground">
+        {isLogin ? "Log in to Ecom Pulse" : "Sign up for Ecom Pulse"}
+      </h1>
+
+      <div className="space-y-3">
+        <input
+          type="email"
+          placeholder="Email Address"
+          className={inputClassName}
+          aria-label="Email Address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className={inputClassName}
+          aria-label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete={isLogin ? "current-password" : "new-password"}
+        />
+        {!isLogin && (
+          <input
+            type="password"
+            placeholder="Re-enter password"
+            className={inputClassName}
+            aria-label="Re-enter password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        )}
+        <Button
+          type="button"
+          className="h-10 w-full rounded-md bg-foreground text-background hover:bg-foreground/90"
+        >
+          {isLogin ? "Log in" : "Sign up"}
+        </Button>
+      </div>
+
+      <div className="space-y-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 w-full rounded-md border-border bg-background gap-2"
+        >
+          <GoogleIcon />
+          {isLogin ? "Log in with Google" : "Continue with Google"}
+        </Button>
+      </div>
+
+      <button
+        type="button"
+        className="text-sm text-muted-foreground hover:text-foreground"
+      >
+        Show other options
+      </button>
+
+      <p className="text-center text-sm text-muted-foreground">
+        {isLogin ? (
+          <>
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/signup"
+              className="font-medium text-primary hover:underline"
+            >
+              Sign up
+            </Link>
+          </>
+        ) : (
+          <>
+            Already have an account?{" "}
+            <Link
+              href="/signup?mode=login"
+              className="font-medium text-primary hover:underline"
+            >
+              Log in
+            </Link>
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+function SignUpPageFallback() {
+  return (
+    <div className="space-y-6">
+      <div className="h-8 w-64 animate-pulse rounded bg-muted" />
+      <div className="space-y-3">
+        <div className="h-10 w-full rounded-md border border-border bg-background" />
+        <div className="h-10 w-full rounded-md bg-muted" />
+      </div>
+      <div className="h-10 w-full rounded-md border border-border" />
+    </div>
+  );
+}
+
 export default function SignUpPage() {
   return (
     <div className="flex min-h-screen flex-col bg-[#fafafa]">
       <Header />
       <main className="flex flex-1 flex-col items-center justify-center px-4 pt-14 pb-8">
         <div className="w-full max-w-[400px] space-y-8">
-          {/* Card */}
-          <div className="space-y-6">
-            <h1 className="font-sans text-2xl font-bold tracking-tight text-foreground">
-              Sign up for Ecom Pulse
-            </h1>
-
-            <div className="space-y-3">
-              <input
-                type="email"
-                placeholder="Email Address"
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                aria-label="Email Address"
-              />
-              <Button
-                type="button"
-                className="h-10 w-full rounded-md bg-foreground text-background hover:bg-foreground/90"
-              >
-                Continue with Email
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 w-full rounded-md border-border bg-background gap-2"
-              >
-                <GoogleIcon />
-                Continue with Google
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 w-full rounded-md border-border bg-background gap-2"
-              >
-                <Github className="size-5" />
-                Continue with GitHub
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 w-full rounded-md border-border bg-background gap-2"
-              >
-                <Apple className="size-5" />
-                Continue with Apple
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 w-full rounded-md border-border bg-background gap-2"
-              >
-                <Lock className="size-5" />
-                Continue with SAML SSO
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-10 w-full rounded-md border-border bg-background gap-2"
-              >
-                <KeyRound className="size-5" />
-                Continue with Passkey
-              </Button>
-            </div>
-
-            <button
-              type="button"
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Show other options
-            </button>
-
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                href="#"
-                className="font-medium text-primary hover:underline"
-              >
-                Log in
-              </Link>
-            </p>
-          </div>
+          <Suspense fallback={<SignUpPageFallback />}>
+            <AuthForm />
+          </Suspense>
 
           {/* Footer */}
-          <footer className="flex justify-center gap-4 text-center text-sm text-muted-foreground">
+          {/* <footer className="flex justify-center gap-4 text-center text-sm text-muted-foreground">
             <Link href="#" className="hover:text-foreground">
               Terms
             </Link>
             <Link href="#" className="hover:text-foreground">
               Privacy Policy
             </Link>
-          </footer>
+          </footer> */}
         </div>
       </main>
     </div>
