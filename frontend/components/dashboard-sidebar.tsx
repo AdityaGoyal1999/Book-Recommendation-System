@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Home, LogOut, ImagePlus } from "lucide-react";
+import { LayoutDashboard, Home, LogOut, ImagePlus, Heart } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -82,6 +82,13 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
                     render={<Link href="/dashboard/new-image"><ImagePlus />New Image</Link>}
                     isActive={pathname === "/dashboard/new-image"}
                     tooltip="New Image"
+                  />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<Link href="/dashboard/favorites"><Heart />My favorites</Link>}
+                    isActive={pathname === "/dashboard/favorites"}
+                    tooltip="My favorites"
                   />
                 </SidebarMenuItem>
               </SidebarMenu>
