@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Sidebar,
@@ -19,13 +19,14 @@ import {
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Home, LogOut } from "lucide-react";
+import { LayoutDashboard, Home, LogOut, ImagePlus } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 export function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -63,17 +64,24 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
+                {/* <SidebarMenuItem>
                   <SidebarMenuButton
                     render={<Link href="/"><Home />Home</Link>}
                     tooltip="Home"
                   />
-                </SidebarMenuItem>
-                <SidebarMenuItem>
+                </SidebarMenuItem> */}
+                {/* <SidebarMenuItem>
                   <SidebarMenuButton
                     render={<Link href="/dashboard"><LayoutDashboard />Dashboard</Link>}
-                    isActive
+                    isActive={pathname === "/dashboard"}
                     tooltip="Dashboard"
+                  />
+                </SidebarMenuItem> */}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<Link href="/dashboard/new-image"><ImagePlus />New Image</Link>}
+                    isActive={pathname === "/dashboard/new-image"}
+                    tooltip="New Image"
                   />
                 </SidebarMenuItem>
               </SidebarMenu>
