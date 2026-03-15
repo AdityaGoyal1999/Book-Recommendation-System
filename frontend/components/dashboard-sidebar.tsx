@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -20,7 +21,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, Home, LogOut, ImagePlus, Heart, Sliders } from "lucide-react";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
@@ -52,7 +52,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton
                   render={<Link href="/dashboard">
-                    <Image src="/next.svg" alt="What to read AI?" width={24} height={24} />
+                    <Image src="/logo/vector/default-monochrome-black.svg" alt="What to read AI?" width={28} height={28} className="size-7 shrink-0 object-contain" />
                     <span>What to read AI?</span>
                   </Link>}
                 tooltip="What to read AI?"
