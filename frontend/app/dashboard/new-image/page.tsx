@@ -3,19 +3,27 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ImagePlus, ClipboardPaste, X } from "lucide-react";
+import { ImagePlus, ClipboardPaste, X, Upload, Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+const STORAGE_BUCKET = "book_scans";
 
 export default function NewImagePage() {
   const [imageData, setImageData] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
 
   const processFile = useCallback((file: File) => {
     setError(null);
+    setUploadedUrl(null);
     if (!file.type.startsWith("image/")) {
       setError("Please paste or drop an image file (e.g. PNG, JPEG, WebP).");
       return;
     }
+    setSelectedFile(file);
     const reader = new FileReader();
     reader.onload = () => setImageData(reader.result as string);
     reader.onerror = () => setError("Failed to read the image.");
@@ -66,8 +74,52 @@ export default function NewImagePage() {
 
   const clearImage = useCallback(() => {
     setImageData(null);
+    setSelectedFile(null);
     setError(null);
+    setUploadedUrl(null);
   }, []);
+
+  const uploadToSupabase = useCallback(async () => {
+    if (!imageData || !selectedFile) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !user) {
+        setError("You must be signed in to upload.");
+        return;
+      }
+      const ext = selectedFile.name.split(".").pop() || "jpg";
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(path, selectedFile, {
+          contentType: selectedFile.type,
+          upsert: false,
+        });
+      if (uploadError) {
+        setError(uploadError.message || "Upload failed.");
+        return;
+      }
+      // Private bucket: use a signed URL (valid 1 hour) so the link works with RLS
+      const { data: signed, error: signedError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(path, 3600);
+      if (signedError) {
+        setError(signedError.message || "Upload succeeded but could not create view link.");
+        return;
+      }
+      setUploadedUrl(signed?.signedUrl ?? null);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }, [imageData, selectedFile]);
 
   return (
     <div className="flex flex-1 flex-col px-4 py-8">
@@ -112,16 +164,47 @@ export default function NewImagePage() {
                   className="max-h-[300px] w-auto max-w-full object-contain sm:max-h-[320px]"
                 />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-4 gap-2"
-                onClick={clearImage}
-              >
-                <X className="size-4" />
-                Clear image
-              </Button>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-2"
+                  onClick={uploadToSupabase}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  {uploading ? "Uploading…" : "Upload to Supabase"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={clearImage}
+                  disabled={uploading}
+                >
+                  <X className="size-4" />
+                  Clear image
+                </Button>
+              </div>
+              {uploadedUrl && (
+                <p className="mt-3 max-w-full truncate text-center text-sm text-muted-foreground">
+                  Uploaded.{" "}
+                  <a
+                    href={uploadedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline underline-offset-2"
+                  >
+                    Open image
+                  </a>{" "}
+                  <span className="text-muted-foreground/80">(link expires in 1 hour)</span>
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 p-8 text-center sm:min-h-[320px]">
