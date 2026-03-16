@@ -407,3 +407,8 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/get-favorites/deno.json"
 entrypoint = "./functions/get-favorites/index.ts"
+
+[functions.image-processing]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/image-processing/index.ts"
