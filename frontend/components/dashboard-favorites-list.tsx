@@ -9,7 +9,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { RefreshCcw } from "lucide-react";
 
  type FavoriteBook = {
    id: string;
@@ -25,66 +27,69 @@ export function FavoritesListSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  async function fetchFavorites() {
     const supabase = createClient();
 
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        const [{ data: sessionData }, { data: { user } }] = await Promise.all([
-          supabase.auth.getSession(),
-          supabase.auth.getUser(),
-        ]);
+      const [{ data: sessionData }, { data: { user } }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.auth.getUser(),
+      ]);
 
-        const accessToken = sessionData.session?.access_token;
-        if (!user || !accessToken) {
-          setFavorites([]);
-          setError("Sign in to see your favorite books.");
-          return;
+      const accessToken = sessionData.session?.access_token;
+      if (!user || !accessToken) {
+        setFavorites([]);
+        setError("Sign in to see your favorite books.");
+        return;
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "get-favorites",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         }
+      );
 
-        const { data, error: fnError } = await supabase.functions.invoke(
-          "get-favorites",
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-        if (fnError) {
-          console.error("get-favorites error", fnError);
-          setError("Could not load favorites. Please try again.");
-          setFavorites([]);
-          return;
-        }
-
-        const favoriteBooks = Array.isArray((data as any)?.favorite_books)
-          ? ((data as any).favorite_books as any[]).map((b, idx) => ({
-              id: String(b.key ?? idx),
-              title: b.title ?? "Untitled",
-              author:
-                Array.isArray(b.authors) && b.authors.length > 0
-                  ? b.authors.join(", ")
-                  : "Unknown author",
-              coverUrl:
-                typeof b.coverId === "number"
-                  ? `https://covers.openlibrary.org/b/id/${b.coverId}-M.jpg`
-                  : null,
-            }))
-          : [];
-
-        setFavorites(favoriteBooks);
-      } catch (e) {
-        console.error(e);
+      if (fnError) {
+        console.error("get-favorites error", fnError);
         setError("Could not load favorites. Please try again.");
         setFavorites([]);
-      } finally {
-        setLoading(false);
+        return;
       }
-    })();
+
+      const favoriteBooks = Array.isArray((data as any)?.favorite_books)
+        ? ((data as any).favorite_books as any[]).map((b, idx) => ({
+            id: String(b.key ?? idx),
+            title: b.title ?? "Untitled",
+            author:
+              Array.isArray(b.authors) && b.authors.length > 0
+                ? b.authors.join(", ")
+                : "Unknown author",
+            coverUrl:
+              typeof b.coverId === "number"
+                ? `https://covers.openlibrary.org/b/id/${b.coverId}-M.jpg`
+                : null,
+          }))
+        : [];
+
+      setFavorites(favoriteBooks);
+    } catch (e) {
+      console.error(e);
+      setError("Could not load favorites. Please try again.");
+      setFavorites([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchFavorites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const items =
@@ -92,25 +97,38 @@ export function FavoritesListSection() {
 
    return (
      <section aria-labelledby="favorites-list-heading" className="space-y-3">
-       <div className="flex items-baseline justify-between gap-2">
-         <div>
-           <h2
-             id="favorites-list-heading"
-             className="font-sans text-lg font-semibold tracking-tight text-foreground sm:text-xl"
-           >
-             Previously liked books
-           </h2>
-           <p className="text-sm text-muted-foreground">
+      <div className="flex items-baseline justify-between gap-2">
+        <div>
+          <h2
+            id="favorites-list-heading"
+            className="font-sans text-lg font-semibold tracking-tight text-foreground sm:text-xl"
+          >
+            Previously liked books
+          </h2>
+          <p className="text-sm text-muted-foreground">
             These books help us understand your taste better.
-           </p>
-         </div>
-        {favorites && favorites.length > 0 && (
-           <p className="text-xs text-muted-foreground">
-             {favorites.length}{" "}
-             {favorites.length === 1 ? "book" : "books"}
-           </p>
-         )}
-       </div>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {favorites && favorites.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {favorites.length}{" "}
+              {favorites.length === 1 ? "book" : "books"}
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="bg-primary text-primary-foreground"
+            size="sm"
+            onClick={fetchFavorites}
+            disabled={loading}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+            <RefreshCcw className="size-4" />
+          </Button>
+        </div>
+      </div>
 
       {loading && (
         <p className="text-xs text-muted-foreground">Loading favorites...</p>

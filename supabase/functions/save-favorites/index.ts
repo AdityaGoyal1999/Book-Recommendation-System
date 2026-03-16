@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const books = (body as any).books;
+  const incomingBooks = (body as any).books as unknown[];
 
   // Admin client with service role key to write into profiles.
   const supabaseAdmin = createClient(
@@ -66,9 +66,42 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // Fetch existing favorites so we can append instead of overwrite.
+  const { data: existingRow, error: fetchError } = await supabaseAdmin
+    .from("profiles")
+    .select("favorite_books")
+    .eq("id", user.id)
+    .single();
+
+  if (fetchError) {
+    console.error("save-favorites fetch error", fetchError);
+    return new Response(
+      JSON.stringify({ error: "Failed to read existing favorites" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+
+  const existing: unknown[] = Array.isArray((existingRow as any)?.favorite_books)
+    ? ((existingRow as any).favorite_books as unknown[])
+    : [];
+
+  // Naive append with simple de-duplication by key if present.
+  const allBooks = [...existing, ...incomingBooks];
+  const dedupedBooks = Array.from(
+    new Map(
+      allBooks.map((b: any, index) => {
+        const key = b?.key ?? index;
+        return [key, b];
+      })
+    ).values()
+  );
+
   const { error: updateError } = await supabaseAdmin
     .from("profiles")
-    .update({ favorite_books: books })
+    .update({ favorite_books: dedupedBooks })
     .eq("id", user.id);
 
   if (updateError) {
@@ -83,7 +116,12 @@ Deno.serve(async (req) => {
   }
 
   return new Response(
-    JSON.stringify({ ok: true, message: "Favorites saved", count: books.length }),
+    JSON.stringify({
+      ok: true,
+      message: "Favorites saved",
+      added: incomingBooks.length,
+      total: dedupedBooks.length,
+    }),
     {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
