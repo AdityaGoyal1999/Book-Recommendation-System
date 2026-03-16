@@ -1,5 +1,6 @@
  "use client";
 
+ import Image from "next/image";
  import { useState, FormEvent } from "react";
  import { Search } from "lucide-react";
  import { Button } from "@/components/ui/button";
@@ -12,16 +13,60 @@
    CardTitle,
  } from "@/components/ui/card";
 
+ type OpenLibraryDoc = {
+   key: string;
+   title?: string;
+   author_name?: string[];
+   first_publish_year?: number;
+  cover_i?: number;
+ };
+
+ type OpenLibrarySearchResponse = {
+   docs?: OpenLibraryDoc[];
+ };
+
  export function FavoritesSearchSection() {
    const [query, setQuery] = useState("");
+   const [results, setResults] = useState<OpenLibraryDoc[]>([]);
+   const [isLoading, setIsLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
 
-   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
      event.preventDefault();
-     // TODO: Wire this up to your book search API.
-     // For now this just prevents a full page reload.
-     // You can lift this state up into the page when you are ready.
-     // eslint-disable-next-line no-console
-     console.log("Search favorites for:", query);
+
+     const trimmed = query.trim();
+     if (!trimmed) {
+       setResults([]);
+       setError(null);
+       return;
+     }
+
+     try {
+       setIsLoading(true);
+       setError(null);
+
+       const url = new URL("https://openlibrary.org/search.json");
+       url.searchParams.set("q", trimmed);
+       url.searchParams.set("limit", "5");
+
+       const response = await fetch(url.toString(), {
+         headers: { Accept: "application/json" },
+       });
+
+       if (!response.ok) {
+         throw new Error(`Open Library search failed: ${response.status}`);
+       }
+
+       const data = (await response.json()) as OpenLibrarySearchResponse;
+       const docs = Array.isArray(data.docs) ? data.docs : [];
+       setResults(docs.slice(0, 5));
+     } catch (e) {
+       console.error(e);
+       setError("Could not fetch results. Please try again.");
+       setResults([]);
+     } finally {
+       setIsLoading(false);
+     }
    }
 
    return (
@@ -55,16 +100,82 @@
              <Button
                type="submit"
                className="inline-flex items-center gap-2 whitespace-nowrap px-4"
+               disabled={isLoading}
              >
                <Search className="size-4" />
-               <span className="hidden sm:inline">Search</span>
-               <span className="sm:hidden">Go</span>
+               <span className="hidden sm:inline">
+                 {isLoading ? "Searching..." : "Search"}
+               </span>
+               <span className="sm:hidden">{isLoading ? "..." : "Go"}</span>
              </Button>
            </form>
-           <p className="mt-3 text-xs text-muted-foreground">
-             Tip: start with a few books you already love.{" "}
-             We&apos;ll use them to fine-tune your recommendations.
-           </p>
+
+           {error && (
+             <p className="mt-3 text-xs text-destructive" role="alert">
+               {error}
+             </p>
+           )}
+
+          {results.length > 0 && !error && (
+             <div className="mt-4 space-y-2">
+               <p className="text-xs font-medium text-muted-foreground">
+                 Top {results.length} result{results.length === 1 ? "" : "s"}
+               </p>
+               <ul className="divide-y divide-border/60 rounded-md border border-border/60 bg-background/40">
+                 {results.map((doc) => {
+                   const authors = doc.author_name?.join(", ");
+                   const year = doc.first_publish_year;
+                  const coverUrl =
+                    typeof doc.cover_i === "number"
+                      ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+                      : null;
+                   return (
+                    <li key={doc.key} className="px-3 py-2 text-xs">
+                      <div className="flex items-start gap-3">
+                        <div className="relative mt-0.5 h-14 w-10 shrink-0 overflow-hidden rounded-sm border border-border/60 bg-muted">
+                          {coverUrl ? (
+                            <Image
+                              src={coverUrl}
+                              alt={doc.title ? `Cover of ${doc.title}` : "Book cover"}
+                              fill
+                              sizes="40px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full" aria-hidden="true" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-foreground">
+                            {doc.title ?? "Untitled"}
+                          </p>
+                          {(authors || year) && (
+                            <p className="text-muted-foreground">
+                              {authors}
+                              {authors && year ? " · " : ""}
+                              {year}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                   );
+                 })}
+               </ul>
+               <p className="text-[11px] text-muted-foreground">
+                 Data from{" "}
+                 <a
+                   href="https://openlibrary.org/dev/docs/api/search"
+                   target="_blank"
+                   rel="noreferrer"
+                   className="underline underline-offset-4"
+                 >
+                   Open Library Search API
+                 </a>
+                 .
+               </p>
+             </div>
+           )}
          </CardContent>
        </Card>
      </section>
