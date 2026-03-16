@@ -401,3 +401,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/save-favorites/deno.json"
 entrypoint = "./functions/save-favorites/index.ts"
+
+[functions.get-favorites]
+enabled = true
+verify_jwt = false
+import_map = "./functions/get-favorites/deno.json"
+entrypoint = "./functions/get-favorites/index.ts"
