@@ -1,7 +1,7 @@
-// Basic Edge Function stub for saving favorites.
-// Currently just returns 200 OK with a simple JSON body.
+// Edge Function to save a user's favorite books into profiles.favorite_books (jsonb).
 
 import "@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,8 +14,76 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const authHeader = req.headers.get("Authorization") ?? "";
+
+  // Client bound to the caller's JWT – used only to discover the user id.
+  const supabaseUserClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabaseUserClient.auth.getUser();
+
+  if (userError || !user) {
+    return new Response(
+      JSON.stringify({ error: "Not authenticated" }),
+      {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+
+  const body = await req.json().catch(() => null) as
+    | { books?: unknown }
+    | null;
+
+  console.log("save-favorites body", body);
+
+  if (!body || !Array.isArray((body as any).books)) {
+    return new Response(
+      JSON.stringify({ error: "Invalid payload, expected { books: [...] }" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+
+  const books = (body as any).books;
+
+  // Admin client with service role key to write into profiles.
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  const { error: updateError } = await supabaseAdmin
+    .from("profiles")
+    .update({ favorite_books: books })
+    .eq("id", user.id);
+
+  if (updateError) {
+    console.error("save-favorites update error", updateError);
+    return new Response(
+      JSON.stringify({ error: "Failed to save favorites" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      }
+    );
+  }
+
   return new Response(
-    JSON.stringify({ ok: true, message: "save-favorites stub" }),
+    JSON.stringify({ ok: true, message: "Favorites saved", count: books.length }),
     {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },

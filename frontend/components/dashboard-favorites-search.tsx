@@ -12,6 +12,7 @@
    CardHeader,
    CardTitle,
  } from "@/components/ui/card";
+ import { createClient } from "@/lib/supabase/client";
 
  type OpenLibraryDoc = {
    key: string;
@@ -37,11 +38,12 @@
    const [query, setQuery] = useState("");
    const [results, setResults] = useState<OpenLibraryDoc[]>([]);
    const [isLoading, setIsLoading] = useState(false);
-   const [error, setError] = useState<string | null>(null);
-   const [selected, setSelected] = useState<SelectedBook[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SelectedBook[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<SelectedBook[] | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
    function isSelected(key: string) {
      return selected.some((b) => b.key === key);
@@ -59,15 +61,17 @@
        firstPublishYear: doc.first_publish_year,
        coverId: doc.cover_i,
      };
-     setSelected((prev) => [next, ...prev]);
-     setSaveError(null);
+    setSelected((prev) => [next, ...prev]);
+    setSaveError(null);
     setSubmitted(null);
+    setSaveStatus(null);
    }
 
    function removeSelected(key: string) {
-     setSelected((prev) => prev.filter((b) => b.key !== key));
-     setSaveError(null);
+    setSelected((prev) => prev.filter((b) => b.key !== key));
+    setSaveError(null);
     setSubmitted(null);
+    setSaveStatus(null);
    }
 
    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -113,14 +117,46 @@
      setSaving(true);
      setSaveError(null);
     setSubmitted(null);
+    setSaveStatus(null);
      try {
-      // For now (until backend endpoint is wired), just show the books the user is saving.
+      const supabase = createClient();
 
-      console.log("These are the selected books", selected);
-      setSubmitted(selected);
+      const [{ data: sessionData }, { data: { user } }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.auth.getUser(),
+      ]);
+
+      const accessToken = sessionData.session?.access_token;
+      if (!user || !accessToken) {
+        setSaveError("You need to be signed in to save favorites.");
+        return;
+      }
+
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "save-favorites",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: {
+            books: selected,
+          },
+        }
+      );
+
+      if (fnError) {
+        console.error(fnError);
+        setSaveError("Could not save favorites. Please try again.");
+        setSaveStatus(null);
+      } else {
+        console.log("save-favorites response", data);
+        setSubmitted(selected);
+        setSaveStatus("Favorites saved successfully (stub response).");
+      }
      } catch (e) {
        console.error(e);
-      setSaveError("Could not prepare your favorites. Please try again.");
+      setSaveError("Could not save your favorites. Please try again.");
+      setSaveStatus(null);
      } finally {
        setSaving(false);
      }
@@ -317,11 +353,16 @@
 
                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                  <div className="min-h-[1rem]">
-                   {saveError && (
-                     <p className="text-xs text-destructive" role="alert">
-                       {saveError}
-                     </p>
-                   )}
+                  {saveError && (
+                    <p className="text-xs text-destructive" role="alert">
+                      {saveError}
+                    </p>
+                  )}
+                  {!saveError && saveStatus && (
+                    <p className="text-xs text-emerald-600" role="status">
+                      {saveStatus}
+                    </p>
+                  )}
                  </div>
                  <Button
                    type="button"
