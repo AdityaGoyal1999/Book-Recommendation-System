@@ -31,7 +31,33 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user: u } }) => setUser(u ?? null));
+    (async () => {
+      const [{ data: sessionData }, { data: { user: u } }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.auth.getUser(),
+      ]);
+
+      setUser(u ?? null);
+
+      const accessToken = sessionData.session?.access_token;
+      if (!u || !accessToken) return;
+
+      const { data, error: fnError } = await supabase.functions.invoke(
+        "hello-world",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: { name: u.email ?? "dashboard user" },
+        }
+      );
+
+      if (fnError) {
+        console.error("hello-world error", fnError);
+      } else {
+        console.log("hello-world response", data);
+      }
+    })();
   }, []);
 
   const displayName = user?.user_metadata?.full_name ?? user?.email?.split("@")[0] ?? "User";
