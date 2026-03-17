@@ -13,6 +13,54 @@ type RecommendedBook = {
   reason: string;
 };
 
+function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    type === "image/heic" ||
+    type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
+function isAllowedImageFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    type === "image/jpeg" ||
+    type === "image/jpg" ||
+    type === "image/png" ||
+    type === "image/heic" ||
+    type === "image/heif" ||
+    name.endsWith(".jpg") ||
+    name.endsWith(".jpeg") ||
+    name.endsWith(".png") ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
+async function convertHeicToJpeg(file: File): Promise<File> {
+  const { default: heic2any } = await import("heic2any");
+  const converted = await heic2any({
+    blob: file,
+    toType: "image/jpeg",
+    quality: 0.9,
+  });
+
+  const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+  if (!(jpegBlob instanceof Blob)) {
+    throw new Error("HEIC conversion failed.");
+  }
+
+  const baseName = file.name.replace(/\.(heic|heif)$/i, "") || "image";
+  return new File([jpegBlob], `${baseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 export default function NewImagePage() {
   const [imageData, setImageData] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -23,20 +71,30 @@ export default function NewImagePage() {
   const [recommendedBooks, setRecommendedBooks] = useState<RecommendedBook[]>([]);
   const [noRecommendations, setNoRecommendations] = useState(false);
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     setError(null);
     setUploadedUrl(null);
     setRecommendedBooks([]);
     setNoRecommendations(false);
-    if (!file.type.startsWith("image/")) {
-      setError("Please paste or drop an image file (e.g. PNG, JPEG, WebP).");
+    if (!isAllowedImageFile(file)) {
+      setError("Please upload a JPEG, PNG, or HEIC image.");
       return;
     }
-    setSelectedFile(file);
+    let normalizedFile = file;
+    try {
+      if (isHeicFile(file)) {
+        normalizedFile = await convertHeicToJpeg(file);
+      }
+    } catch {
+      setError("Could not convert HEIC image. Please try another photo.");
+      return;
+    }
+
+    setSelectedFile(normalizedFile);
     const reader = new FileReader();
     reader.onload = () => setImageData(reader.result as string);
     reader.onerror = () => setError("Failed to read the image.");
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(normalizedFile);
   }, []);
 
   const handlePaste = useCallback(
@@ -44,7 +102,7 @@ export default function NewImagePage() {
       const item = e.clipboardData?.items?.[0];
       if (item?.kind === "file") {
         const file = item.getAsFile();
-        if (file) processFile(file);
+        if (file) void processFile(file);
       }
     },
     [processFile]
@@ -55,7 +113,7 @@ export default function NewImagePage() {
       e.preventDefault();
       setIsDragging(false);
       const file = e.dataTransfer.files?.[0];
-      if (file) processFile(file);
+      if (file) void processFile(file);
     },
     [processFile]
   );
@@ -75,7 +133,7 @@ export default function NewImagePage() {
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (file) processFile(file);
+      if (file) void processFile(file);
       e.target.value = "";
     },
     [processFile]
@@ -196,7 +254,7 @@ export default function NewImagePage() {
         >
           <input
             type="file"
-            accept="image/*"
+            accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
             className="absolute inset-0 cursor-pointer opacity-0"
             onChange={handleFileInput}
             aria-label="Upload image"
@@ -275,7 +333,7 @@ export default function NewImagePage() {
               </div>
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-muted-foreground">
                 <ClipboardPaste className="size-4 shrink-0" />
-                <span className="text-sm">Supported: PNG, JPEG, WebP, GIF</span>
+                <span className="text-sm">Supported: JPEG, PNG, HEIC</span>
               </div>
             </div>
           )}

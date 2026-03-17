@@ -66,10 +66,36 @@ Deno.serve(async (req) => {
     );
   }
 
+  const scansWithImageUrl = await Promise.all(
+    (data ?? []).map(async (scan) => {
+      if (!scan?.bucket_id || !scan?.object_path) {
+        return { ...scan, image_url: null };
+      }
+
+      const { data: signedData, error: signedError } = await supabaseAdmin.storage
+        .from(scan.bucket_id)
+        .createSignedUrl(scan.object_path, 3600);
+
+      if (signedError) {
+        console.error("get-previous-scans signed url error", {
+          scan_id: scan.id,
+          bucket_id: scan.bucket_id,
+          object_path: scan.object_path,
+          error: signedError,
+        });
+      }
+
+      return {
+        ...scan,
+        image_url: signedData?.signedUrl ?? null,
+      };
+    })
+  );
+
   return new Response(
     JSON.stringify({
       ok: true,
-      scans: data ?? [],
+      scans: scansWithImageUrl,
     }),
     {
       status: 200,
