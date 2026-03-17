@@ -9,6 +9,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+type Book = { title: string; author: string | null };
+type Recommendation = { title: string; author: string | null; reason?: string };
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
+
 function extractFirstJsonObject(text: string): string {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -38,6 +48,217 @@ function getResponseText(openAiData: any): string {
   return textParts.join("\n").trim();
 }
 
+function normalizeBooks(raw: unknown): Book[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((book: any) => ({
+      title: typeof book?.title === "string" ? book.title.trim() : "",
+      author: typeof book?.author === "string" ? book.author.trim() : null,
+    }))
+    .filter((book) => book.title.length > 0);
+}
+
+function normalizeRecommendations(raw: unknown): Recommendation[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((book: any) => ({
+      title: typeof book?.title === "string" ? book.title.trim() : "",
+      author: typeof book?.author === "string" ? book.author.trim() : null,
+      reason: typeof book?.reason === "string" ? book.reason.trim() : undefined,
+    }))
+    .filter((book) => book.title.length > 0)
+    .slice(0, 5);
+}
+
+async function fetchOpenAiJson({
+  apiKey,
+  model,
+  input,
+}: {
+  apiKey: string;
+  model: string;
+  input: unknown[];
+}) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ model, input }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI request failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = getResponseText(data);
+  if (!text) return {};
+
+  try {
+    return JSON.parse(extractFirstJsonObject(text));
+  } catch {
+    return {};
+  }
+}
+
+async function getAuthenticatedUser(authHeader: string) {
+  const supabaseUserClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+    error,
+  } = await supabaseUserClient.auth.getUser();
+
+  if (error || !user) {
+    throw new Error("Not authenticated");
+  }
+
+  return user;
+}
+
+function getAdminClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+}
+
+async function createImageSignedUrl(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  bucketId: string,
+  objectPath: string
+) {
+  const { data, error } = await supabaseAdmin.storage
+    .from(bucketId)
+    .createSignedUrl(objectPath, 300);
+  if (error || !data?.signedUrl) {
+    throw new Error("Failed to create signed URL for OCR");
+  }
+  return data.signedUrl;
+}
+
+async function detectBooksFromImage({
+  openAiApiKey,
+  signedImageUrl,
+}: {
+  openAiApiKey: string;
+  signedImageUrl: string;
+}): Promise<Book[]> {
+  const parsed = await fetchOpenAiJson({
+    apiKey: openAiApiKey,
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text:
+              "Extract visible book titles and authors from this image. " +
+              "Return strict JSON only with this schema: " +
+              '{"books":[{"title":"string","author":"string|null"}]}.',
+          },
+          {
+            type: "input_image",
+            image_url: signedImageUrl,
+          },
+        ],
+      },
+    ],
+  });
+
+  return normalizeBooks(parsed?.books);
+}
+
+async function getUserReadingContext(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId: string
+) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("favorite_books, preferences_data")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    throw new Error("Failed to fetch user profile context");
+  }
+
+  const rawFavorites = Array.isArray(data?.favorite_books)
+    ? data.favorite_books
+    : [];
+  const favoriteBooks = rawFavorites
+    .map((book: any) => ({
+      title:
+        (typeof book?.title === "string" && book.title.trim()) ||
+        (typeof book?.name === "string" && book.name.trim()) ||
+        "",
+      author:
+        (typeof book?.author === "string" && book.author.trim()) ||
+        (typeof book?.authors === "string" && book.authors.trim()) ||
+        null,
+    }))
+    .filter((book: any) => book.title.length > 0);
+
+  const genres = Array.isArray(data?.preferences_data?.genres)
+    ? data.preferences_data.genres.filter((g: unknown): g is string => typeof g === "string")
+    : [];
+
+  return { favoriteBooks, genres };
+}
+
+async function generateRecommendations({
+  openAiApiKey,
+  detectedBooks,
+  favoriteBooks,
+  genres,
+}: {
+  openAiApiKey: string;
+  detectedBooks: Book[];
+  favoriteBooks: Array<{ title: string; author: string | null }>;
+  genres: string[];
+}): Promise<Recommendation[]> {
+  if (detectedBooks.length === 0) return [];
+
+  const parsed = await fetchOpenAiJson({
+    apiKey: openAiApiKey,
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text:
+              "You are a book recommendation engine. " +
+              "Given detected books from a shelf, the user's favorite books, and preferred genres, " +
+              "recommend up to 5 books this user is most likely to love. " +
+              "Return STRICT JSON only in this schema: " +
+              '{"books":[{"title":"string","author":"string|null","reason":"string"}]}. ' +
+              "Maximum 5 books.\n\n" +
+              `Detected books: ${JSON.stringify(detectedBooks)}\n` +
+              `Favorite books: ${JSON.stringify(favoriteBooks)}\n` +
+              `Preferred genres: ${JSON.stringify(genres)}`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return normalizeRecommendations(parsed?.books);
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -45,31 +266,7 @@ Deno.serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
-
-    const supabaseUserClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseUserClient.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Not authenticated" }),
-        {
-          status: 401,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
+    const user = await getAuthenticatedUser(authHeader);
 
     const payload = (await req.json().catch(() => null)) as
       | { bucket_id?: string; object_path?: string; status?: string }
@@ -80,108 +277,40 @@ Deno.serve(async (req) => {
     const status = payload?.status?.trim() || "pending";
 
     if (!bucketId || !objectPath) {
-      return new Response(
-        JSON.stringify({
-          error: "Invalid payload, expected { bucket_id, object_path }",
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
+      return jsonResponse(
+        { error: "Invalid payload, expected { bucket_id, object_path }" },
+        400
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseAdmin = getAdminClient();
+    const signedImageUrl = await createImageSignedUrl(
+      supabaseAdmin,
+      bucketId,
+      objectPath
     );
-
-    const { data: signed, error: signedError } = await supabaseAdmin.storage
-      .from(bucketId)
-      .createSignedUrl(objectPath, 300);
-
-    if (signedError || !signed?.signedUrl) {
-      console.error("image-processing signed URL error", signedError);
-      return new Response(
-        JSON.stringify({ error: "Failed to create signed URL for OCR" }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
 
     const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiApiKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing OPENAI_API_KEY secret" }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
+      return jsonResponse({ error: "Missing OPENAI_API_KEY secret" }, 500);
     }
 
-    const openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openAiApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text:
-                  "Extract visible book titles and authors from this image. " +
-                  "Return strict JSON only with this schema: " +
-                  '{"books":[{"title":"string","author":"string|null"}]}.',
-              },
-              {
-                type: "input_image",
-                image_url: signed.signedUrl,
-              },
-            ],
-          },
-        ],
-      }),
+    const detectedBooks = await detectBooksFromImage({
+      openAiApiKey,
+      signedImageUrl,
     });
 
-    if (!openAiResponse.ok) {
-      const errorText = await openAiResponse.text();
-      console.error("image-processing OpenAI error", errorText);
-      return new Response(
-        JSON.stringify({ error: "OpenAI OCR request failed" }),
-        {
-          status: 502,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
-    }
+    const { favoriteBooks, genres } = await getUserReadingContext(
+      supabaseAdmin,
+      user.id
+    );
 
-    const openAiData = await openAiResponse.json();
-    const responseText = getResponseText(openAiData);
-
-    let detectedBooks: Array<{ title: string; author: string | null }> = [];
-    if (responseText) {
-      try {
-        const parsed = JSON.parse(extractFirstJsonObject(responseText));
-        const books = Array.isArray(parsed?.books) ? parsed.books : [];
-        detectedBooks = books
-          .map((book: any) => ({
-            title: typeof book?.title === "string" ? book.title.trim() : "",
-            author:
-              typeof book?.author === "string" ? book.author.trim() : null,
-          }))
-          .filter((book: any) => book.title.length > 0);
-      } catch (parseError) {
-        console.error("image-processing OCR parse error", parseError);
-      }
-    }
+    const recommendations = await generateRecommendations({
+      openAiApiKey,
+      detectedBooks,
+      favoriteBooks,
+      genres,
+    });
 
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("scans")
@@ -191,44 +320,33 @@ Deno.serve(async (req) => {
         object_path: objectPath,
         status,
         detected_books: detectedBooks,
-        recommendations: [],
+        recommendations,
       })
       .select("id, user_id, bucket_id, object_path, status, created_at")
       .single();
 
     if (insertError) {
       console.error("image-processing insert error", insertError);
-      return new Response(
-        JSON.stringify({ error: "Failed to create scan entry" }),
-        {
-          status: 500,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
-      );
+      return jsonResponse({ error: "Failed to create scan entry" }, 500);
     }
 
     console.log("image-processing created scan:", inserted);
 
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         message: "file uploaded",
         scan: inserted,
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      },
+      200
     );
   } catch (error) {
     console.error("Error in image-processing function:", error);
 
-    return new Response(
-      JSON.stringify({ error: "internal error" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
-    );
+    if (error instanceof Error && error.message === "Not authenticated") {
+      return jsonResponse({ error: "Not authenticated" }, 401);
+    }
+
+    return jsonResponse({ error: "internal error" }, 500);
   }
 });
 
