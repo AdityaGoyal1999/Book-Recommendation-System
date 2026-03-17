@@ -7,6 +7,11 @@ import { ImagePlus, ClipboardPaste, X, Upload, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const STORAGE_BUCKET = "book_scans";
+type RecommendedBook = {
+  title: string;
+  author: string | null;
+  reason: string;
+};
 
 export default function NewImagePage() {
   const [imageData, setImageData] = useState<string | null>(null);
@@ -15,10 +20,14 @@ export default function NewImagePage() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [recommendedBooks, setRecommendedBooks] = useState<RecommendedBook[]>([]);
+  const [noRecommendations, setNoRecommendations] = useState(false);
 
   const processFile = useCallback((file: File) => {
     setError(null);
     setUploadedUrl(null);
+    setRecommendedBooks([]);
+    setNoRecommendations(false);
     if (!file.type.startsWith("image/")) {
       setError("Please paste or drop an image file (e.g. PNG, JPEG, WebP).");
       return;
@@ -77,6 +86,8 @@ export default function NewImagePage() {
     setSelectedFile(null);
     setError(null);
     setUploadedUrl(null);
+    setRecommendedBooks([]);
+    setNoRecommendations(false);
   }, []);
 
   const uploadToSupabase = useCallback(async () => {
@@ -110,25 +121,45 @@ export default function NewImagePage() {
         .from(STORAGE_BUCKET)
         .createSignedUrl(path, 3600);
 
-      // Send bucket + object path to the image-processing Edge Function
-      // so the backend can track this scan in a persistent way.
-      // The Edge Function can later use these to generate signed URLs
-      // and run OCR in the background.
-      void supabase.functions.invoke("image-processing", {
-        body: {
-          bucket_id: STORAGE_BUCKET,
-          object_path: path,
-        },
-      }).then((data) => {
-        console.log("image-processing response", data);
-      }).catch((error) => {
-        console.error("image-processing error", error);
-      });
-
       if (signedError) {
         setError(signedError.message || "Upload succeeded but could not create view link.");
         return;
       }
+
+      const { data: processingData, error: processingError } = await supabase.functions.invoke(
+        "image-processing",
+        {
+          body: {
+            bucket_id: STORAGE_BUCKET,
+            object_path: path,
+          },
+        }
+      );
+
+      if (processingError) {
+        setError(processingError.message || "Image processing failed.");
+        return;
+      }
+
+      const recommendations = Array.isArray(processingData?.recommended_books)
+        ? processingData.recommended_books
+            .map((book: unknown) => {
+              const b = book as {
+                title?: string;
+                author?: string | null;
+                reason?: string;
+              };
+              return {
+                title: typeof b.title === "string" ? b.title.trim() : "",
+                author: typeof b.author === "string" ? b.author.trim() : null,
+                reason: typeof b.reason === "string" ? b.reason.trim() : "",
+              };
+            })
+            .filter((book: RecommendedBook) => book.title.length > 0 && book.reason.length > 0)
+        : [];
+
+      setRecommendedBooks(recommendations);
+      setNoRecommendations(recommendations.length === 0);
       setUploadedUrl(signed?.signedUrl ?? null);
     } catch {
       setError("Something went wrong. Please try again.");
@@ -257,6 +288,43 @@ export default function NewImagePage() {
           >
             {error}
           </div>
+        )}
+
+        {noRecommendations && !error && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+            We could not generate recommendations from this image. Try uploading a clearer shelf photo
+            or one with more visible book titles.
+          </div>
+        )}
+
+        {recommendedBooks.length > 0 && (
+          <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground sm:text-xl">
+                Recommended for you
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Based on your shelf photo, favorites, and genre preferences.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {recommendedBooks.map((book, idx) => (
+                <article
+                  key={`${book.title}-${idx}`}
+                  className="rounded-lg border border-border/80 bg-background px-4 py-3"
+                >
+                  <p className="font-medium text-foreground">
+                    {idx + 1}. {book.title}
+                    {book.author ? (
+                      <span className="font-normal text-muted-foreground"> by {book.author}</span>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{book.reason}</p>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>
