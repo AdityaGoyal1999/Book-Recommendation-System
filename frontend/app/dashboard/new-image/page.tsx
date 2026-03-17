@@ -109,6 +109,22 @@ export default function NewImagePage() {
       const { data: signed, error: signedError } = await supabase.storage
         .from(STORAGE_BUCKET)
         .createSignedUrl(path, 3600);
+
+      // Send bucket + object path to the image-processing Edge Function
+      // so the backend can track this scan in a persistent way.
+      // The Edge Function can later use these to generate signed URLs
+      // and run OCR in the background.
+      void supabase.functions.invoke("image-processing", {
+        body: {
+          bucket_id: STORAGE_BUCKET,
+          object_path: path,
+        },
+      }).then((data) => {
+        console.log("image-processing response", data);
+      }).catch((error) => {
+        console.error("image-processing error", error);
+      });
+
       if (signedError) {
         setError(signedError.message || "Upload succeeded but could not create view link.");
         return;

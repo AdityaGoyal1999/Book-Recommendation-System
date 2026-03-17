@@ -39,24 +39,6 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
 
       setUser(u ?? null);
 
-      const accessToken = sessionData.session?.access_token;
-      if (!u || !accessToken) return;
-
-      const { data, error: fnError } = await supabase.functions.invoke(
-        "hello-world",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: { name: u.email ?? "dashboard user" },
-        }
-      );
-
-      if (fnError) {
-        console.error("hello-world error", fnError);
-      } else {
-        console.log("hello-world response", data);
-      }
     })();
   }, []);
 
