@@ -141,6 +141,17 @@ function getAdminClient() {
   );
 }
 
+function isUnsupportedImageFormatError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("unsupported image") ||
+    normalized.includes("unsupported format") ||
+    normalized.includes("invalid image format") ||
+    normalized.includes("heic") ||
+    normalized.includes("heif")
+  );
+}
+
 async function createImageSignedUrl(
   supabaseAdmin: ReturnType<typeof createClient>,
   bucketId: string,
@@ -375,6 +386,18 @@ Deno.serve(async (req) => {
 
     if (error instanceof Error && error.message === "Not authenticated") {
       return jsonResponse({ error: "Not authenticated" }, 401);
+    }
+    if (
+      error instanceof Error &&
+      isUnsupportedImageFormatError(error.message)
+    ) {
+      return jsonResponse(
+        {
+          error:
+            "Unsupported image format for processing. Please upload JPEG, PNG, or HEIC (auto-converted to JPEG).",
+        },
+        415
+      );
     }
 
     return jsonResponse({ error: "internal error" }, 500);

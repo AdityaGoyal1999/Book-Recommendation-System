@@ -76,8 +76,12 @@ export default function NewImagePage() {
     setUploadedUrl(null);
     setRecommendedBooks([]);
     setNoRecommendations(false);
+    // Always reset previous selection first so invalid files cannot be uploaded.
+    setSelectedFile(null);
+    setImageData(null);
+
     if (!isAllowedImageFile(file)) {
-      setError("Please upload a JPEG, PNG, or HEIC image.");
+      setError("Please upload a JPG, JPEG, PNG, or HEIC image.");
       return;
     }
     let normalizedFile = file;
@@ -150,6 +154,10 @@ export default function NewImagePage() {
 
   const uploadToSupabase = useCallback(async () => {
     if (!imageData || !selectedFile) return;
+    if (!isAllowedImageFile(selectedFile)) {
+      setError("Only JPG, JPEG, PNG, and HEIC files are supported.");
+      return;
+    }
     setError(null);
     setUploading(true);
     try {
@@ -333,7 +341,7 @@ export default function NewImagePage() {
               </div>
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-muted-foreground">
                 <ClipboardPaste className="size-4 shrink-0" />
-                <span className="text-sm">Supported: JPEG, PNG, HEIC</span>
+                <span className="text-sm">Supported: JPG, JPEG, PNG, HEIC</span>
               </div>
             </div>
           )}
