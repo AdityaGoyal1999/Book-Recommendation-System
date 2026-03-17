@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -35,9 +35,28 @@ export default function GenrePreferencesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastSaved, setLastSaved] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const hasChanges = !setsEqual(selected, lastSaved);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.functions
+      .invoke("get-genre-preferences")
+      .then(({ data, error }) => {
+        if (error) {
+          setMessage({ type: "error", text: error.message || "Failed to load preferences." });
+          return;
+        }
+        const raw = data?.preferences_data?.genres;
+        const genres = Array.isArray(raw) ? raw.filter((g: unknown): g is string => typeof g === "string") : [];
+        const initial = new Set<string>(genres);
+        setSelected(initial);
+        setLastSaved(initial);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const toggle = useCallback((genre: string) => {
     setSelected((prev) => {
@@ -98,7 +117,10 @@ export default function GenrePreferencesPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {BROAD_GENRES.map((genre) => (
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading preferences…</p>
+          ) : (
+          BROAD_GENRES.map((genre) => (
             <button
               key={genre}
               type="button"
@@ -115,7 +137,7 @@ export default function GenrePreferencesPage() {
             >
               {genre}
             </button>
-          ))}
+          )))}
         </div>
 
         {selected.size > 0 && (
