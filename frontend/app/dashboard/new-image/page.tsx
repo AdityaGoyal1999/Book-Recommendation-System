@@ -303,7 +303,7 @@ export default function NewImagePage() {
                   ) : (
                     <Upload className="size-4" />
                   )}
-                  {uploading ? "Uploading…" : "Upload to Supabase"}
+                  {uploading ? "Uploading…" : "Get Recommendations"}
                 </Button>
                 <Button
                   type="button"
