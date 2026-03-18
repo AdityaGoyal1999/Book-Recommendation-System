@@ -443,3 +443,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/stripe-webhook/deno.json"
 entrypoint = "./functions/stripe-webhook/index.ts"
+
+[functions.create-stripe-portal]
+enabled = true
+verify_jwt = false
+import_map = "./functions/create-stripe-portal/deno.json"
+entrypoint = "./functions/create-stripe-portal/index.ts"

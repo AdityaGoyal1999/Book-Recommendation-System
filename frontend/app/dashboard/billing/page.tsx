@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { CreditCard, Receipt } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 function getMonthWindow(date: Date) {
@@ -30,6 +30,7 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPro, setIsPro] = useState<boolean | null>(null);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<"success" | "canceled" | null>(null);
 
   useEffect(() => {
@@ -66,6 +67,31 @@ export default function BillingPage() {
       setError("Something went wrong.");
     } finally {
       setPaymentsLoading(false);
+    }
+  }
+
+  async function handleManageSubscription() {
+    setPortalLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data, error: fnError } = await supabase.functions.invoke("create-stripe-portal");
+
+      if (fnError) {
+        setError(fnError.message || "Failed to open customer portal.");
+        return;
+      }
+
+      const portalUrl = data?.portal_url;
+      if (portalUrl) {
+        window.location.href = portalUrl;
+      } else {
+        setError("No portal URL received.");
+      }
+    } catch {
+      setError("Something went wrong.");
+    } finally {
+      setPortalLoading(false);
     }
   }
 
@@ -106,14 +132,6 @@ export default function BillingPage() {
   useEffect(() => {
     void loadBilling();
   }, []);
-
-  // Placeholder for future billing history - no table exists yet
-  const bills: Array<{
-    id: string;
-    date: string;
-    amount: string;
-    status: string;
-  }> = [];
 
   return (
     <div className="flex flex-1 flex-col px-4 py-8">
@@ -157,20 +175,10 @@ export default function BillingPage() {
           <>
             {/* Section 1: Current status */}
             <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="flex items-center gap-2 font-sans text-lg font-semibold text-foreground">
-                  <CreditCard className="h-5 w-5" />
-                  Current plan
-                </h2>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePayments}
-                  disabled={paymentsLoading}
-                >
-                  {paymentsLoading ? "Loading..." : "Payments"}
-                </Button>
-              </div>
+              <h2 className="flex items-center gap-2 font-sans text-lg font-semibold text-foreground">
+                <CreditCard className="h-5 w-5" />
+                Current plan
+              </h2>
               <div className="rounded-xl border border-border bg-card p-5">
                 {isPro ? (
                   <div className="space-y-4">
@@ -211,40 +219,37 @@ export default function BillingPage() {
               </div>
             </section>
 
-            {/* Section 2: Billing history */}
+            {/* Section 2: CTA */}
             <section className="space-y-3">
-              <h2 className="flex items-center gap-2 font-sans text-lg font-semibold text-foreground">
-                <Receipt className="h-5 w-5" />
-                Billing history
-              </h2>
-              <div className="rounded-xl border border-border bg-card p-5">
-                {bills.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <Receipt className="mb-3 h-12 w-12 text-muted-foreground/50" />
-                    <p className="text-sm font-medium text-foreground">No bills yet</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {isPro
-                        ? "Your billing history will appear here once you have been charged."
-                        : "Upgrade to Premium to see your billing history here."}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {bills.map((bill) => (
-                      <div
-                        key={bill.id}
-                        className="flex items-center justify-between rounded-lg border border-border/60 px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{bill.date}</p>
-                          <p className="text-xs text-muted-foreground">{bill.status}</p>
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{bill.amount}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {isPro ? (
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <p className="text-sm font-medium text-foreground">Manage your subscription</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Update payment method, view invoices, or cancel your subscription.
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={handleManageSubscription}
+                    disabled={portalLoading}
+                  >
+                    {portalLoading ? "Loading..." : "Manage subscription"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <p className="text-sm font-medium text-foreground">Upgrade to Premium</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Get 50 scans per month for $5/month. Cancel anytime.
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={handlePayments}
+                    disabled={paymentsLoading}
+                  >
+                    {paymentsLoading ? "Loading..." : "Subscribe"}
+                  </Button>
+                </div>
+              )}
             </section>
           </>
         )}
