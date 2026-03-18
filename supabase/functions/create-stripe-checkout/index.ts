@@ -99,9 +99,43 @@ Deno.serve(async (req) => {
     }
   }
 
-  return jsonResponse({
-    ok: true,
-    stripe_customer_id: stripeCustomerId,
-    created: !profile?.stripe_customer_id,
-  });
+  const priceId = Deno.env.get("STRIPE_PRICE_ID");
+  if (!priceId) {
+    console.error("STRIPE_PRICE_ID not set");
+    return jsonResponse({ error: "Stripe price is not configured" }, 500);
+  }
+
+  const origin = req.headers.get("Origin") ?? req.headers.get("Referer")?.replace(/\/$/, "") ?? "";
+  const siteUrl = Deno.env.get("SITE_URL") ?? (origin || "http://127.0.0.1:3000");
+  const baseUrl = siteUrl.replace(/\/$/, "");
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomerId,
+      mode: "subscription",
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${baseUrl}/dashboard/billing?success=true`,
+      cancel_url: `${baseUrl}/dashboard/billing?canceled=true`,
+      metadata: {
+        supabase_user_id: user.id,
+      },
+    });
+
+    return jsonResponse({
+      ok: true,
+      stripe_customer_id: stripeCustomerId,
+      checkout_url: session.url,
+    });
+  } catch (stripeError) {
+    console.error("create-stripe-checkout Checkout Session error:", stripeError);
+    return jsonResponse(
+      { error: "Failed to create checkout session" },
+      500
+    );
+  }
 });

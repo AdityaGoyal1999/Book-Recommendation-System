@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CreditCard, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,17 +25,45 @@ function formatDate(date: Date) {
 }
 
 export default function BillingPage() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPro, setIsPro] = useState<boolean | null>(null);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [checkoutMessage, setCheckoutMessage] = useState<"success" | "canceled" | null>(null);
+
+  useEffect(() => {
+    const success = searchParams.get("success");
+    const canceled = searchParams.get("canceled");
+    if (success === "true") {
+      setCheckoutMessage("success");
+      window.history.replaceState({}, "", "/dashboard/billing");
+    } else if (canceled === "true") {
+      setCheckoutMessage("canceled");
+      window.history.replaceState({}, "", "/dashboard/billing");
+    }
+  }, [searchParams]);
 
   async function handlePayments() {
     setPaymentsLoading(true);
+    setError(null);
     try {
       const supabase = createClient();
       const { data, error: fnError } = await supabase.functions.invoke("create-stripe-checkout");
-      console.log("create-stripe-checkout response:", { data, error: fnError });
+
+      if (fnError) {
+        setError(fnError.message || "Failed to start checkout.");
+        return;
+      }
+
+      const checkoutUrl = data?.checkout_url;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        setError("No checkout URL received.");
+      }
+    } catch {
+      setError("Something went wrong.");
     } finally {
       setPaymentsLoading(false);
     }
@@ -42,39 +71,39 @@ export default function BillingPage() {
 
   const { start, end } = useMemo(() => getMonthWindow(new Date()), []);
 
-  useEffect(() => {
-    const loadBilling = async () => {
-      setLoading(true);
-      setError(null);
+  const loadBilling = async () => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const supabase = createClient();
-        const { data: userData } = await supabase.auth.getUser();
-        const user = userData?.user ?? null;
-        if (!user?.id) {
-          setError("You must be signed in to view billing.");
-          return;
-        }
-
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("is_pro")
-          .eq("id", user.id)
-          .single();
-
-        if (profileError) {
-          setError(profileError.message || "Failed to load profile.");
-          return;
-        }
-
-        setIsPro(typeof profileData?.is_pro === "boolean" ? profileData.is_pro : false);
-      } catch {
-        setError("Something went wrong while loading billing.");
-      } finally {
-        setLoading(false);
+    try {
+      const supabase = createClient();
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user ?? null;
+      if (!user?.id) {
+        setError("You must be signed in to view billing.");
+        return;
       }
-    };
 
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("is_pro")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        setError(profileError.message || "Failed to load profile.");
+        return;
+      }
+
+      setIsPro(typeof profileData?.is_pro === "boolean" ? profileData.is_pro : false);
+    } catch {
+      setError("Something went wrong while loading billing.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     void loadBilling();
   }, []);
 
