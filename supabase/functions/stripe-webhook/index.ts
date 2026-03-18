@@ -54,12 +54,24 @@ Deno.serve(async (req) => {
           console.warn("checkout.session.completed: no supabase_user_id in metadata");
           break;
         }
+        let nextBillingDate: string | null = null;
+        if (session.subscription) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+            nextBillingDate = sub.current_period_end
+              ? new Date(sub.current_period_end * 1000).toISOString()
+              : null;
+          } catch {
+            // Fallback: customer.subscription.updated will set it
+          }
+        }
         const { error } = await supabaseAdmin
           .from("profiles")
           .update({
             is_pro: true,
             subscription_status: "active",
             num_scans: 0,
+            next_billing_date: nextBillingDate,
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);
@@ -76,6 +88,9 @@ Deno.serve(async (req) => {
         const customerId = subscription.customer as string;
         const status = subscription.status;
         const isActive = status === "active" || status === "trialing";
+        const nextBillingDate = isActive && subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : null;
         const { data: profile } = await supabaseAdmin
           .from("profiles")
           .select("id")
@@ -90,6 +105,7 @@ Deno.serve(async (req) => {
           .update({
             is_pro: isActive,
             subscription_status: status,
+            next_billing_date: nextBillingDate,
             ...(isActive && { num_scans: 0 }),
             updated_at: new Date().toISOString(),
           })
@@ -119,6 +135,7 @@ Deno.serve(async (req) => {
           .update({
             is_pro: false,
             subscription_status: "canceled",
+            next_billing_date: null,
             num_scans: 0,
             updated_at: new Date().toISOString(),
           })
