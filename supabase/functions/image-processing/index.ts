@@ -152,6 +152,27 @@ function isUnsupportedImageFormatError(message: string): boolean {
   );
 }
 
+async function getUserUsageAndPlan(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId: string
+) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("is_pro, num_scans")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const isPro = typeof data?.is_pro === "boolean" ? data.is_pro : false;
+  const numScans = typeof data?.num_scans === "number" ? data.num_scans : 0;
+  const limit = isPro ? 50 : 5;
+
+  return { isPro, numScans, limit };
+}
+
 async function incrementUserNumScans(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string
@@ -389,6 +410,30 @@ Deno.serve(async (req) => {
     }
 
     const supabaseAdmin = getAdminClient();
+
+    // Enforce quota BEFORE doing any expensive work.
+    try {
+      const { isPro, numScans, limit } = await getUserUsageAndPlan(
+        supabaseAdmin,
+        user.id
+      );
+      if (numScans >= limit) {
+        return jsonResponse(
+          {
+            error: "Usage limit reached",
+            message: isPro
+              ? "You have used all 50 scans for this month. Please wait for your plan to renew."
+              : "You have used all 5 free scans for this month. Upgrade to Premium to get 50 scans/month.",
+            usage: { used: numScans, limit },
+          },
+          402
+        );
+      }
+    } catch (quotaErr) {
+      console.error("image-processing quota check failed", quotaErr);
+      return jsonResponse({ error: "Failed to validate usage limits" }, 500);
+    }
+
     const signedImageUrl = await createImageSignedUrl(
       supabaseAdmin,
       bucketId,
