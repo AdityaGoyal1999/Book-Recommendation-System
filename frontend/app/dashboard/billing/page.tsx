@@ -130,6 +130,20 @@ export default function BillingPage() {
           </div>
         )}
 
+        {checkoutMessage === "success" && (
+          <div
+            role="status"
+            className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400"
+          >
+            Payment successful! Your subscription is now active.
+          </div>
+        )}
+        {checkoutMessage === "canceled" && (
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+            Checkout was canceled.
+          </div>
+        )}
+
         {error && (
           <div
             role="alert"

@@ -10,12 +10,17 @@ Deno.serve(async (req) => {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  const signature = req.headers.get("Stripe-Signature");
+  const signature =
+    req.headers.get("Stripe-Signature") ?? req.headers.get("stripe-signature");
   const signingSecret = Deno.env.get("STRIPE_WEBHOOK_SIGNING_SECRET");
 
-  if (!signature || !signingSecret) {
-    console.error("Missing Stripe-Signature or STRIPE_WEBHOOK_SIGNING_SECRET");
-    return new Response("Webhook not configured", { status: 400 });
+  if (!signature) {
+    console.error("Missing Stripe-Signature header");
+    return new Response("Missing Stripe-Signature header", { status: 400 });
+  }
+  if (!signingSecret) {
+    console.error("STRIPE_WEBHOOK_SIGNING_SECRET is not set. Add it via: supabase secrets set STRIPE_WEBHOOK_SIGNING_SECRET=whsec_xxx");
+    return new Response("Webhook signing secret not configured", { status: 400 });
   }
 
   const body = await req.text();
@@ -32,7 +37,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid signature";
     console.error("Stripe webhook signature verification failed:", message);
-    return new Response(message, { status: 400 });
+    return new Response(`Webhook verification failed: ${message}`, { status: 400 });
   }
 
   const supabaseAdmin = createClient(
@@ -54,6 +59,7 @@ Deno.serve(async (req) => {
           .update({
             is_pro: true,
             subscription_status: "active",
+            num_scans: 0,
             updated_at: new Date().toISOString(),
           })
           .eq("id", userId);
@@ -84,6 +90,7 @@ Deno.serve(async (req) => {
           .update({
             is_pro: isActive,
             subscription_status: status,
+            ...(isActive && { num_scans: 0 }),
             updated_at: new Date().toISOString(),
           })
           .eq("id", profile.id);
@@ -112,6 +119,7 @@ Deno.serve(async (req) => {
           .update({
             is_pro: false,
             subscription_status: "canceled",
+            num_scans: 0,
             updated_at: new Date().toISOString(),
           })
           .eq("id", profile.id);
