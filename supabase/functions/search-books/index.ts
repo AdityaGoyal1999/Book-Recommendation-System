@@ -9,11 +9,80 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const UPSTASH_REDIS_REST_URL =
+  Deno.env.get("UPSTASH_REDIS_REST_URL") ??
+  Deno.env.get("UPSTASH_REDIS_URL") ??
+  Deno.env.get("UPSTASH_REDIS_REST_ENDPOINT") ??
+  "";
+
+const UPSTASH_REDIS_REST_TOKEN =
+  Deno.env.get("UPSTASH_REDIS_REST_TOKEN") ??
+  Deno.env.get("UPSTASH_REDIS_TOKEN") ??
+  "";
+
+const CACHE_TTL_SECONDS = Math.max(
+  60,
+  Number(Deno.env.get("UPSTASH_CACHE_TTL_SECONDS") ?? "21600")
+); // 6h default
+
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders },
   });
+}
+
+async function upstashGetJson<T>(key: string): Promise<T | null> {
+  if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) return null;
+
+  const url = `${UPSTASH_REDIS_REST_URL.replace(/\/$/, "")}/get/${encodeURIComponent(key)}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) return null;
+    const data = (await response.json()) as { result?: unknown };
+    const raw = data?.result;
+    if (raw === null || raw === undefined) return null;
+
+    // We store JSON as a string in Redis, so `raw` is usually a string.
+    if (typeof raw === "string") {
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return null;
+      }
+    }
+
+    return raw as T;
+  } catch {
+    return null;
+  }
+}
+
+async function upstashSetJson(key: string, value: unknown, ttlSeconds: number) {
+  if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) return;
+
+  const url = `${UPSTASH_REDIS_REST_URL.replace(/\/$/, "")}/set/${encodeURIComponent(key)}?EX=${ttlSeconds}`;
+
+  try {
+    // Upstash REST supports POST where the body becomes the SET value.
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+        "Content-Type": "text/plain",
+      },
+      body: typeof value === "string" ? value : JSON.stringify(value),
+    });
+  } catch {
+    // Cache failures should never break search.
+  }
 }
 
 type OpenLibraryDoc = {
@@ -86,7 +155,17 @@ Deno.serve(async (req) => {
     const tokens = tokensForOpenLibrarySearch(query);
 
     const perTokenResults = await Promise.all(
-      tokens.map((token) => fetchOpenLibraryDocsForToken(token))
+      tokens.map(async (token) => {
+        const tokenKey = token.toLowerCase().trim();
+        const cacheKey = `books:${tokenKey}`;
+
+        const cached = await upstashGetJson<OpenLibraryDoc[]>(cacheKey);
+        if (cached !== null) return cached;
+
+        const docs = await fetchOpenLibraryDocsForToken(token);
+        await upstashSetJson(cacheKey, docs, CACHE_TTL_SECONDS);
+        return docs;
+      })
     );
 
     const byKey = new Map<string, OpenLibraryDoc>();
