@@ -285,6 +285,75 @@ async function detectBooksFromImage({
   return normalizeBooks(parsed?.books);
 }
 
+async function detectBooksFromVisionOcr({
+  googleVisionApiKey,
+  signedImageUrl,
+  openAiApiKey,
+}: {
+  googleVisionApiKey: string;
+  signedImageUrl: string;
+  openAiApiKey: string;
+}): Promise<Book[]> {
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(
+      googleVisionApiKey
+    )}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              source: { imageUri: signedImageUrl },
+            },
+            features: [{ type: "DOCUMENT_TEXT_DETECTION", maxResults: 1 }],
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google Vision OCR failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const ocrText =
+    data?.responses?.[0]?.fullTextAnnotation?.text ??
+    data?.responses?.[0]?.textAnnotations?.[0]?.description ??
+    "";
+
+  const trimmedText = typeof ocrText === "string" ? ocrText.trim() : "";
+  if (!trimmedText) return [];
+
+  // Convert raw OCR text into structured books with the same schema as primary OCR.
+  const parsed = await fetchOpenAiJson({
+    apiKey: openAiApiKey,
+    model: "gpt-4.1-mini",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text:
+              "You are given OCR text extracted from a photo of books. " +
+              "Extract visible book titles and authors. " +
+              "Return strict JSON only with this schema: " +
+              '{"books":[{"title":"string","author":"string|null"}]}. ' +
+              "If uncertain, skip noisy lines. Use null for unknown authors.\n\n" +
+              `OCR text:\n${trimmedText}`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return normalizeBooks(parsed?.books);
+}
+
 async function getUserReadingContext(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string
@@ -450,7 +519,40 @@ Deno.serve(async (req) => {
       signedImageUrl,
     });
 
-    if (detectedBooks.length === 0) {
+    let finalDetectedBooks = detectedBooks;
+
+    if (finalDetectedBooks.length === 0) {
+      const googleVisionApiKey =
+        Deno.env.get("GOOGLE_VISION_API_KEY") ??
+        Deno.env.get("GOOGLE_CLOUD_VISION_API_KEY") ??
+        Deno.env.get("GOOGLE_CLOUD_API_KEY");
+
+      if (googleVisionApiKey) {
+        try {
+          const fallbackBooks = await detectBooksFromVisionOcr({
+            googleVisionApiKey,
+            signedImageUrl,
+            openAiApiKey,
+          });
+          if (fallbackBooks.length > 0) {
+            console.log(
+              "image-processing OCR fallback succeeded with Google Vision",
+              { user_id: user.id, books_detected: fallbackBooks.length }
+            );
+            finalDetectedBooks = fallbackBooks;
+          } else {
+            console.log(
+              "image-processing OCR fallback returned no books",
+              { user_id: user.id }
+            );
+          }
+        } catch (fallbackErr) {
+          console.error("image-processing OCR fallback error", fallbackErr);
+        }
+      }
+    }
+
+    if (finalDetectedBooks.length === 0) {
       const inserted = await insertScanRow({
         supabaseAdmin,
         userId: user.id,
@@ -485,7 +587,7 @@ Deno.serve(async (req) => {
 
     const recommendations = await generateRecommendations({
       openAiApiKey,
-      detectedBooks,
+      detectedBooks: finalDetectedBooks,
       favoriteBooks,
       genres,
     });
@@ -496,7 +598,7 @@ Deno.serve(async (req) => {
       bucketId,
       objectPath,
       status: "completed",
-      detectedBooks,
+      detectedBooks: finalDetectedBooks,
       recommendations,
     });
 
