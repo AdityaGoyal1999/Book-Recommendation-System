@@ -4,7 +4,7 @@ import Script from "next/script";
 import { createClient } from "@/lib/supabase/client";
 import type { accounts, CredentialResponse } from "google-one-tap";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 declare const google: { accounts: accounts };
 
@@ -86,8 +86,9 @@ export function GoogleOneTap(
     onReadyChange?.(true);
     google.accounts.id.prompt();
     if (buttonContainerId) {
-      const el = document.getElementById(buttonContainerId);
-      if (el) {
+      const tryRender = () => {
+        const el = document.getElementById(buttonContainerId);
+        if (!el) return false;
         const width = el.offsetWidth || 400;
         google.accounts.id.renderButton(el, {
           type: "standard",
@@ -95,10 +96,34 @@ export function GoogleOneTap(
           text: "continue_with",
           width,
         });
+        return true;
+      };
+
+      // The script can load before the container div is mounted (e.g. Suspense/hydration).
+      // Retry briefly so the button is rendered as soon as the element exists.
+      if (!tryRender()) {
+        const start = Date.now();
+        const interval = setInterval(() => {
+          if (tryRender() || Date.now() - start > 5000) {
+            clearInterval(interval);
+          }
+        }, 100);
       }
     }
     initialized.current = true;
   };
+
+  // If the Google script has already been loaded (e.g. navigation back to this page),
+  // next/script's onLoad may not fire again. In that case, initialize on mount.
+  useEffect(() => {
+    const canInitialize =
+      typeof google !== "undefined" &&
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (google as any)?.accounts?.id;
+    if (canInitialize) void initializeGoogleOneTap();
+    // Intentionally depend only on buttonContainerId so we re-render into the right element.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buttonContainerId]);
 
   return (
     <Script
