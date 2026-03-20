@@ -96,6 +96,9 @@ export default function NewImagePage() {
   const [noRecommendationsMessage, setNoRecommendationsMessage] = useState<string | null>(null);
   const [numScans, setNumScans] = useState<number>(0);
   const [isPro, setIsPro] = useState<boolean>(false);
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [onboardingActive, setOnboardingActive] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   const loadUsage = useCallback(async () => {
     try {
@@ -106,12 +109,21 @@ export default function NewImagePage() {
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("is_pro, num_scans")
+        .select("is_pro, num_scans, created_at")
         .eq("id", user.id)
         .single();
 
       setIsPro(typeof profileData?.is_pro === "boolean" ? profileData.is_pro : false);
       setNumScans(typeof profileData?.num_scans === "number" ? profileData.num_scans : 0);
+
+      const createdAt =
+        typeof profileData?.created_at === "string" ? new Date(profileData.created_at) : null;
+      if (createdAt && !Number.isNaN(createdAt.getTime())) {
+        // Treat a user as "new" for onboarding within the first 7 days.
+        setIsNewUser(Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000);
+      } else {
+        setIsNewUser(false);
+      }
     } catch {
       // Ignore
     }
@@ -120,6 +132,29 @@ export default function NewImagePage() {
   useEffect(() => {
     void loadUsage();
   }, [loadUsage]);
+
+  useEffect(() => {
+    try {
+      const active = localStorage.getItem("book_onboarding_active") === "true";
+      const completed = localStorage.getItem("book_onboarding_completed") === "true";
+      setOnboardingActive(active);
+      setOnboardingCompleted(completed);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const handleStartOnboarding = () => {
+    try {
+      localStorage.setItem("book_onboarding_active", "true");
+      localStorage.setItem("book_onboarding_completed", "false");
+    } catch {
+      // Ignore
+    }
+    setOnboardingActive(true);
+    setOnboardingCompleted(false);
+    window.dispatchEvent(new Event("book:onboarding-start"));
+  };
 
   const limit = isPro ? 50 : 5;
 
@@ -309,6 +344,17 @@ export default function NewImagePage() {
           <p className="mt-2 text-muted-foreground">
             Paste from clipboard (Ctrl+V / Cmd+V), or drag and drop an image here.
           </p>
+          {isNewUser && !onboardingCompleted && !onboardingActive && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={handleStartOnboarding}
+            >
+              Start onboarding
+            </Button>
+          )}
         </div>
 
         <div className="rounded-lg border border-border bg-card px-4 py-3 w-1/2">

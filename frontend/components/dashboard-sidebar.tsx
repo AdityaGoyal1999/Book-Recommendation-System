@@ -25,6 +25,8 @@ import { LayoutDashboard, Home, LogOut, ImagePlus, Heart, Sliders, History, Gaug
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 
 export function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -35,6 +37,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
     isPro: boolean | null;
   }>({ createdAt: null, isPro: null });
   const [profilePopupOpen, setProfilePopupOpen] = useState(false);
+  const [onboardingActive, setOnboardingActive] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -71,6 +74,74 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
     router.refresh();
   }
 
+  useEffect(() => {
+    try {
+      setOnboardingActive(localStorage.getItem("book_onboarding_active") === "true");
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    const endOnboarding = () => {
+      setOnboardingActive(false);
+      try {
+        localStorage.setItem("book_onboarding_active", "false");
+        localStorage.setItem("book_onboarding_completed", "true");
+      } catch {
+        // Ignore
+      }
+    };
+
+    const startOnboarding = () => {
+      // Allow starting even if a user previously completed, since this is explicit.
+      try {
+        localStorage.setItem("book_onboarding_active", "true");
+        localStorage.setItem("book_onboarding_completed", "false");
+      } catch {
+        // Ignore
+      }
+
+      setOnboardingActive(true);
+
+      // Defer to ensure the sidebar elements are present.
+      setTimeout(() => {
+        driver({
+          showProgress: false,
+          allowClose: true,
+          animate: true,
+          onDestroyed: endOnboarding,
+          steps: [
+            {
+              element: "#onboarding-new-image",
+              popover: {
+                title: "New Image",
+                description: "Upload a photo of a shelf to generate recommendations.",
+              },
+            },
+            {
+              element: "#onboarding-favorites",
+              popover: {
+                title: "My favorites",
+                description: "Save books you love so we can learn your taste.",
+              },
+            },
+            {
+              element: "#onboarding-genre-preferences",
+              popover: {
+                title: "Genre preferences",
+                description: "Pick broad categories you enjoy for better recommendations.",
+              },
+            },
+          ],
+        }).drive();
+      }, 0);
+    };
+
+    window.addEventListener("book:onboarding-start", startOnboarding);
+    return () => window.removeEventListener("book:onboarding-start", startOnboarding);
+  }, []);
+
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
@@ -91,21 +162,30 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
           <SidebarGroup className="flex flex-1 flex-col min-h-0">
             <SidebarGroupContent className="flex flex-1 flex-col min-h-0">
               <SidebarMenu>
-                <SidebarMenuItem>
+                <SidebarMenuItem
+                  id="onboarding-new-image"
+                  className={cn(onboardingActive && "ring-2 ring-primary/60 rounded-md")}
+                >
                   <SidebarMenuButton
                     render={<Link href="/dashboard/new-image"><ImagePlus />New Image</Link>}
                     isActive={pathname === "/dashboard/new-image"}
                     tooltip="New Image"
                   />
                 </SidebarMenuItem>
-                <SidebarMenuItem>
+                <SidebarMenuItem
+                  id="onboarding-favorites"
+                  className={cn(onboardingActive && "ring-2 ring-primary/60 rounded-md")}
+                >
                   <SidebarMenuButton
                     render={<Link href="/dashboard/favorites"><Heart />My favorites</Link>}
                     isActive={pathname === "/dashboard/favorites"}
                     tooltip="My favorites"
                   />
                 </SidebarMenuItem>
-                <SidebarMenuItem>
+                <SidebarMenuItem
+                  id="onboarding-genre-preferences"
+                  className={cn(onboardingActive && "ring-2 ring-primary/60 rounded-md")}
+                >
                   <SidebarMenuButton
                     render={<Link href="/dashboard/genre-preferences"><Sliders />Genre preferences</Link>}
                     isActive={pathname === "/dashboard/genre-preferences"}
