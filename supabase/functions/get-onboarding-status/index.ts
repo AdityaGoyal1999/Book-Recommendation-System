@@ -61,13 +61,37 @@ Deno.serve(async (req) => {
     );
   }
 
-  const isOnboarded = typeof data?.is_onboarded === "boolean" ? data.is_onboarded : false;
+  const wasOnboarded =
+    typeof data?.is_onboarded === "boolean" ? data.is_onboarded : false;
+
+  // Mark onboarding as done after the first successful status check.
+  if (!wasOnboarded) {
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({
+        is_onboarded: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (updateError) {
+      console.error("get-onboarding-status update error", updateError);
+      return new Response(
+        JSON.stringify({ error: "Failed to update onboarding status" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+  }
 
   return new Response(
     JSON.stringify({
       ok: true,
       status: true,
-      is_onboarded: isOnboarded,
+      is_onboarded: wasOnboarded,
     }),
     {
       status: 200,
