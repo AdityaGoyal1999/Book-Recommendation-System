@@ -7,7 +7,7 @@ const problems = [
   {
     title: "Reading every summary is low ROI",
     description:
-      "Checking each book's back cover or summary one by one doesn't scale. You need a shortcut to the few titles you're actually likely to love.",
+      "Checking each book&apos;s back cover or summary one by one doesn&apos;t scale. You need a shortcut to the few titles you&apos;re actually likely to love.",
   },
   {
     title: "Your taste is already on Goodreads",
@@ -39,10 +39,10 @@ export function ProblemAndSolution() {
     <section className="border-t border-border bg-muted/30 py-16 md:py-24">
       <div className="container px-4">
         <h2 className="font-sans text-center text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
-          Built for readers who don't want to guess
+          Built for readers who don&apos;t want to guess
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-center text-muted-foreground">
-          Browsing hundreds of books and reading every summary isn't the best ROI.
+          Browsing hundreds of books and reading every summary isn&apos;t the best ROI.
           We use your Goodreads data and preferences so you get picks, not noise.
         </p>
 

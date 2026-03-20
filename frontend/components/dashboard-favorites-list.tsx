@@ -20,6 +20,17 @@ import { RefreshCcw } from "lucide-react";
    coverUrl?: string | null;
  };
 
+type FavoriteBookPayload = {
+  key?: unknown;
+  title?: unknown;
+  authors?: unknown;
+  coverId?: unknown;
+};
+
+type GetFavoritesResponse = {
+  favorite_books?: FavoriteBookPayload[];
+};
+
 const placeholderFavorites: FavoriteBook[] = [];
 
 export function FavoritesListSection() {
@@ -62,12 +73,13 @@ export function FavoritesListSection() {
         return;
       }
 
-      const favoriteBooks = Array.isArray((data as any)?.favorite_books)
-        ? ((data as any).favorite_books as any[]).map((b, idx) => ({
-            id: String(b.key ?? idx),
-            title: b.title ?? "Untitled",
+      const payload = (data ?? {}) as GetFavoritesResponse;
+      const favoriteBooks = Array.isArray(payload.favorite_books)
+        ? payload.favorite_books.map((b, idx) => ({
+            id: String(typeof b.key === "string" && b.key.length > 0 ? b.key : idx),
+            title: typeof b.title === "string" && b.title.length > 0 ? b.title : "Untitled",
             author:
-              Array.isArray(b.authors) && b.authors.length > 0
+              Array.isArray(b.authors) && b.authors.every((a) => typeof a === "string")
                 ? b.authors.join(", ")
                 : "Unknown author",
             coverUrl:
@@ -89,7 +101,6 @@ export function FavoritesListSection() {
 
   useEffect(() => {
     fetchFavorites();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const items =
