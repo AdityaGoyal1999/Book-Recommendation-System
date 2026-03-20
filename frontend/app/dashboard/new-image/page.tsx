@@ -96,7 +96,6 @@ export default function NewImagePage() {
   const [noRecommendationsMessage, setNoRecommendationsMessage] = useState<string | null>(null);
   const [numScans, setNumScans] = useState<number>(0);
   const [isPro, setIsPro] = useState<boolean>(false);
-  const [isNewUser, setIsNewUser] = useState(false);
   const [onboardingActive, setOnboardingActive] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
@@ -115,15 +114,6 @@ export default function NewImagePage() {
 
       setIsPro(typeof profileData?.is_pro === "boolean" ? profileData.is_pro : false);
       setNumScans(typeof profileData?.num_scans === "number" ? profileData.num_scans : 0);
-
-      const createdAt =
-        typeof profileData?.created_at === "string" ? new Date(profileData.created_at) : null;
-      if (createdAt && !Number.isNaN(createdAt.getTime())) {
-        // Treat a user as "new" for onboarding within the first 7 days.
-        setIsNewUser(Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000);
-      } else {
-        setIsNewUser(false);
-      }
     } catch {
       // Ignore
     }
@@ -136,9 +126,9 @@ export default function NewImagePage() {
   useEffect(() => {
     try {
       const active = localStorage.getItem("book_onboarding_active") === "true";
-      const completed = localStorage.getItem("book_onboarding_completed") === "true";
+      // const completed = localStorage.getItem("book_onboarding_completed") === "true";
       setOnboardingActive(active);
-      setOnboardingCompleted(completed);
+      // setOnboardingCompleted(completed);
     } catch {
       // Ignore
     }
@@ -147,12 +137,12 @@ export default function NewImagePage() {
   const handleStartOnboarding = () => {
     try {
       localStorage.setItem("book_onboarding_active", "true");
-      localStorage.setItem("book_onboarding_completed", "false");
+      // localStorage.setItem("book_onboarding_completed", "false");
     } catch {
       // Ignore
     }
     setOnboardingActive(true);
-    setOnboardingCompleted(false);
+    // setOnboardingCompleted(false);
     window.dispatchEvent(new Event("book:onboarding-start"));
   };
 
@@ -344,7 +334,7 @@ export default function NewImagePage() {
           <p className="mt-2 text-muted-foreground">
             Paste from clipboard (Ctrl+V / Cmd+V), or drag and drop an image here.
           </p>
-          {isNewUser && !onboardingCompleted && !onboardingActive && (
+          {!onboardingCompleted && !onboardingActive && (
             <Button
               type="button"
               variant="outline"
