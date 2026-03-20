@@ -101,24 +101,24 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
           onDestroyed: endOnboarding,
           steps: [
             {
-              element: "#onboarding-new-image",
-              popover: {
-                title: "New Image",
-                description: "Upload a photo of a shelf to generate recommendations.",
-              },
-            },
-            {
               element: "#onboarding-favorites",
               popover: {
                 title: "My favorites",
-                description: "Save books you love so we can learn your taste.",
+                description: "Save books you love so we can personalize your recommendations.",
               },
             },
             {
               element: "#onboarding-genre-preferences",
               popover: {
                 title: "Genre preferences",
-                description: "Pick broad categories you enjoy for better recommendations.",
+                description: "Pick broad categories you enjoy for more personalized recommendations.",
+              },
+            },
+            {
+              element: "#onboarding-new-image",
+              popover: {
+                title: "New Image",
+                description: "Upload a photo of a shelf to generate recommendations.",
               },
             },
           ],
@@ -151,15 +151,6 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
             <SidebarGroupContent className="flex flex-1 flex-col min-h-0">
               <SidebarMenu>
                 <SidebarMenuItem
-                  id="onboarding-new-image"
-                >
-                  <SidebarMenuButton
-                    render={<Link href="/dashboard/new-image"><ImagePlus />New Image</Link>}
-                    isActive={pathname === "/dashboard/new-image"}
-                    tooltip="New Image"
-                  />
-                </SidebarMenuItem>
-                <SidebarMenuItem
                   id="onboarding-favorites"
                 >
                   <SidebarMenuButton
@@ -168,6 +159,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
                     tooltip="My favorites"
                   />
                 </SidebarMenuItem>
+
                 <SidebarMenuItem
                   id="onboarding-genre-preferences"
                 >
@@ -177,7 +169,19 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
                     tooltip="Genre preferences"
                   />
                 </SidebarMenuItem>
-              </SidebarMenu>
+
+                <SidebarMenuItem
+                  id="onboarding-new-image"
+                >
+                <SidebarMenuButton
+                  render={<Link href="/dashboard/new-image"><ImagePlus />New Image</Link>}
+                  isActive={pathname === "/dashboard/new-image"}
+                  tooltip="New Image"
+                />
+              </SidebarMenuItem>
+
+              
+            </SidebarMenu>
 
               <div className="min-h-0 flex-1" aria-hidden />
 
