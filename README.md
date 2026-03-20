@@ -1,18 +1,11 @@
 # Book Recommendation System 📚
 
-
 ## Problem 🧭
+
 In a bookstore (or while browsing online) 📚, it can be hard to quickly identify which books will match your tastes. Reading descriptions and manually comparing many titles is slow and often leads to decision fatigue.
 
-## Solution 🚀
-This app helps users make faster, more accurate choices by:
-- letting users take a photo of books they see (shelf image / cover image),
-- extracting titles/authors from the image using an OCR+LLM pipeline,
-- generating recommendations tailored to the user’s saved favorites and genre preferences.
-
-It includes a dashboard experience for history and favorites, plus subscription-based usage limits.
-
 ## Tech Stack 🧰
+
 - Frontend: Next.js (React + TypeScript), Tailwind CSS, shadcn/ui components 🖥️
 - Backend (data + auth): Supabase (Auth, Postgres, Storage, Edge Functions) 🗄️
 - AI:
@@ -22,7 +15,18 @@ It includes a dashboard experience for history and favorites, plus subscription-
 - Cache: Upstash Redis (HTTP/REST access from edge functions)
 - Search ranking: Fuse.js (fuzzy matching) 🔎
 
+## Solution 🚀
+
+This app helps users make faster, more accurate choices by:
+
+- letting users take a photo of books they see (shelf image / cover image),
+- extracting titles/authors from the image using an OCR+LLM pipeline,
+- generating recommendations tailored to the user’s saved favorites and genre preferences.
+
+It includes a dashboard experience for history and favorites, plus subscription-based usage limits.
+
 ## Features ✨
+
 - Image-based scan 📸 -> structured extraction of book titles/authors.
 - Recommendation engine that uses the detected books + user preferences to generate up to 5 recommendations (with guardrails to keep results grounded in what was detected).
 - Favorites management:
@@ -49,6 +53,7 @@ It includes a dashboard experience for history and favorites, plus subscription-
   - Redis (Upstash) cache-aside for token-level Open Library results ⚡
 
 ## Project Structure 🗂️
+
 - `frontend/`
   - Next.js App Router pages for the dashboard (scan history, favorites, genre preferences, usage)
   - UI components (sidebar, favorites search, usage cards, etc.)
@@ -61,3 +66,4 @@ It includes a dashboard experience for history and favorites, plus subscription-
     - `save-favorites/`: persist favorites in `profiles`
     - `get-onboarding-status/`: returns prior onboarding state and marks first-time users onboarded
     - Stripe sync functions (`create-stripe-checkout`, `stripe-webhook`, `create-stripe-portal`) 💳
+
