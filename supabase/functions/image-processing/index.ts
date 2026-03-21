@@ -1,13 +1,56 @@
-// @ts-nocheck
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 
+const ALLOWED_ORIGIN = Deno.env.get("SITE_URL") ?? "http://localhost:3000";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+const UPSTASH_REDIS_REST_URL =
+  Deno.env.get("UPSTASH_REDIS_REST_URL") ??
+  Deno.env.get("UPSTASH_REDIS_URL") ??
+  "";
+
+const UPSTASH_REDIS_REST_TOKEN =
+  Deno.env.get("UPSTASH_REDIS_REST_TOKEN") ??
+  Deno.env.get("UPSTASH_REDIS_TOKEN") ??
+  "";
+
+const RATE_LIMIT_MAX_REQUESTS = 10; // max requests per window
+const RATE_LIMIT_WINDOW_SECONDS = 60; // 1 minute window
+
+async function checkRateLimit(userId: string): Promise<boolean> {
+  if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) return true;
+
+  const key = `ratelimit:image-processing:${userId}`;
+  const url = `${UPSTASH_REDIS_REST_URL.replace(/\/$/, "")}/pipeline`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["INCR", key],
+        ["EXPIRE", key, RATE_LIMIT_WINDOW_SECONDS.toString()],
+      ]),
+    });
+
+    if (!res.ok) return true; // fail open if Redis is down
+
+    const data = (await res.json()) as Array<{ result: number }>;
+    const count = data?.[0]?.result ?? 0;
+    return count <= RATE_LIMIT_MAX_REQUESTS;
+  } catch {
+    return true; // fail open
+  }
+}
 
 type Book = { title: string; author: string | null };
 type Recommendation = { title: string; author: string | null; reason: string };
@@ -177,26 +220,15 @@ async function incrementUserNumScans(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string
 ) {
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select("num_scans")
-    .eq("id", userId)
-    .single();
+  // Atomic increment via database function to prevent race conditions
+  // that could allow users to bypass quota limits with concurrent requests.
+  const { error } = await supabaseAdmin.rpc("increment_num_scans", {
+    p_user_id: userId,
+  });
 
-  if (profileError) {
-    throw profileError;
-  }
-
-  const current = typeof profile?.num_scans === "number" ? profile.num_scans : 0;
-  const next = current + 1;
-
-  const { error: updateError } = await supabaseAdmin
-    .from("profiles")
-    .update({ num_scans: next })
-    .eq("id", userId);
-
-  if (updateError) {
-    throw updateError;
+  if (error) {
+    console.error("increment_num_scans RPC error:", error);
+    throw error;
   }
 }
 
@@ -463,6 +495,15 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const user = await getAuthenticatedUser(authHeader);
+
+    // Rate limit per user to prevent API credit abuse.
+    const allowed = await checkRateLimit(user.id);
+    if (!allowed) {
+      return jsonResponse(
+        { error: "Too many requests. Please wait a moment before trying again." },
+        429
+      );
+    }
 
     const payload = (await req.json().catch(() => null)) as
       | { bucket_id?: string; object_path?: string; status?: string }

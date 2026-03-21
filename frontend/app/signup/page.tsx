@@ -35,8 +35,8 @@ function AuthForm() {
       setError("Passwords do not match.");
       return;
     }
-    if (!isLogin && password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!isLogin && password.length < 8) {
+      setError("Password must be at least 8 characters and contain letters and digits.");
       return;
     }
 

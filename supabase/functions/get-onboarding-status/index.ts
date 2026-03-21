@@ -1,8 +1,10 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 
+const ALLOWED_ORIGIN = Deno.env.get("SITE_URL") ?? "http://localhost:3000";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };

@@ -6,9 +6,10 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 
-// Minimal CORS headers so the browser can call this function
+const ALLOWED_ORIGIN = Deno.env.get("SITE_URL") ?? "http://localhost:3000";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
   2. Make an HTTP request:
 
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/hello-world' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
+    --header 'Authorization: Bearer <YOUR_ANON_KEY>' \
     --header 'Content-Type: application/json' \
     --data '{"name":"Functions"}'
 

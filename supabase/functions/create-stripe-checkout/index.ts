@@ -2,8 +2,10 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?dts";
 import Stripe from "https://esm.sh/stripe@14?target=denonext";
 
+const ALLOWED_ORIGIN = Deno.env.get("SITE_URL") ?? "http://localhost:3000";
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -105,8 +107,11 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Stripe price is not configured" }, 500);
   }
 
-  const origin = req.headers.get("Origin") ?? req.headers.get("Referer")?.replace(/\/$/, "") ?? "";
-  const siteUrl = Deno.env.get("SITE_URL") ?? (origin || "http://127.0.0.1:3000");
+  const siteUrl = Deno.env.get("SITE_URL");
+  if (!siteUrl) {
+    console.error("SITE_URL is not set");
+    return jsonResponse({ error: "SITE_URL is not configured" }, 500);
+  }
   const baseUrl = siteUrl.replace(/\/$/, "");
 
   try {
