@@ -5,12 +5,9 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { DASHBOARD_ONBOARDING_START_EVENT } from "@/lib/dashboard-onboarding-events";
 
-export function DashboardOnboardingTrigger() {
+/** Auto-starts the product tour for users who are not yet onboarded (invokes edge function once). */
+function useDashboardOnboardingAutoStart() {
   const autoStartedRef = useRef(false);
-
-  const handleStartOnboarding = () => {
-    window.dispatchEvent(new Event(DASHBOARD_ONBOARDING_START_EVENT));
-  };
 
   useEffect(() => {
     if (autoStartedRef.current) return;
@@ -33,13 +30,18 @@ export function DashboardOnboardingTrigger() {
 
     void run();
   }, []);
-
-  return (
-    <div className="fixed right-4 top-3 z-50 rounded-md border border-border bg-background/95 p-0.5 shadow-sm backdrop-blur-sm">
-      <Button type="button" variant="outline" size="sm" onClick={handleStartOnboarding}>
-        Demo App
-      </Button>
-    </div>
-  );
 }
 
+export function DashboardDemoButton() {
+  useDashboardOnboardingAutoStart();
+
+  const handleStartOnboarding = () => {
+    window.dispatchEvent(new Event(DASHBOARD_ONBOARDING_START_EVENT));
+  };
+
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={handleStartOnboarding}>
+      Demo App
+    </Button>
+  );
+}

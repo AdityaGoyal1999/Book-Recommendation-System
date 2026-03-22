@@ -21,6 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardUser } from "@/hooks/use-dashboard-user";
 import { useDashboardOnboardingListener } from "@/hooks/use-dashboard-onboarding-listener";
+import { DashboardDemoButton } from "@/components/dashboard-onboarding-trigger";
 import { DashboardSidebarNav } from "@/components/dashboard-sidebar-nav";
 import { DashboardSidebarProfile } from "@/components/dashboard-sidebar-profile";
 
@@ -85,6 +86,9 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
           <SidebarTrigger />
+          <div className="ml-auto flex items-center gap-2">
+            <DashboardDemoButton />
+          </div>
         </header>
         {children}
       </SidebarInset>
