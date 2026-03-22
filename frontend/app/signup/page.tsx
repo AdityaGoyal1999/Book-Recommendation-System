@@ -182,31 +182,24 @@ function SignUpPageFallback() {
 export default function SignUpPage() {
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <Header
-        trailing={
-          <Link
-            href="/"
-            className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Back to home
-          </Link>
-        }
-      />
-      <main className="flex flex-1 flex-col items-center justify-center px-6 pb-12 pt-6 sm:px-10 lg:px-12">
-        <div className="w-full max-w-[400px] space-y-8">
-          <Suspense fallback={<SignUpPageFallback />}>
-            <AuthForm />
-          </Suspense>
-
-          {/* Footer */}
-          {/* <footer className="flex justify-center gap-4 text-center text-sm text-muted-foreground">
-            <Link href="#" className="hover:text-foreground">
-              Terms
+      {/* Same shell as landing (`app/page.tsx`): padded `main` so the header gets `py-8` top space */}
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 sm:px-10 lg:px-12">
+        <Header
+          trailing={
+            <Link
+              href="/"
+              className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Back to home
             </Link>
-            <Link href="#" className="hover:text-foreground">
-              Privacy Policy
-            </Link>
-          </footer> */}
+          }
+        />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center pb-12 pt-4">
+          <div className="w-full max-w-[400px] space-y-8">
+            <Suspense fallback={<SignUpPageFallback />}>
+              <AuthForm />
+            </Suspense>
+          </div>
         </div>
       </main>
     </div>
