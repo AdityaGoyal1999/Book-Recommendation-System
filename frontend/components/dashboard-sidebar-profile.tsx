@@ -50,7 +50,7 @@ export function DashboardSidebarProfile({
         variant="ghost"
         size="icon"
         onClick={onLogout}
-        className="shrink-0 bg-sidebar-accent text-sidebar-foreground hover:bg-red-100 hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+        className="shrink-0 bg-sidebar-accent text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive group-data-[collapsible=icon]:hidden"
         aria-label="Log out"
       >
         <LogOut className="size-4" />

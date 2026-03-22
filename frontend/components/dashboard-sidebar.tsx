@@ -40,7 +40,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="bg-background text-foreground">
       <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-sidebar-border">
           <SidebarMenu>
@@ -83,7 +83,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background px-4">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
           <SidebarTrigger />
         </header>
         {children}

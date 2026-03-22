@@ -9,7 +9,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 
 const inputClassName =
-  "h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2";
+  "h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background";
 
 function AuthForm() {
   const router = useRouter();
@@ -117,7 +117,7 @@ function AuthForm() {
         )}
         <Button
           type="button"
-          className="h-10 w-full rounded-md bg-foreground text-background hover:bg-foreground/90"
+          className="h-10 w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={handleSubmit}
           disabled={loading}
         >
@@ -146,10 +146,7 @@ function AuthForm() {
         {isLogin ? (
           <>
             Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="font-medium text-primary hover:underline"
-            >
+            <Link href="/signup" className="font-medium text-foreground underline-offset-4 hover:underline">
               Sign up
             </Link>
           </>
@@ -158,7 +155,7 @@ function AuthForm() {
             Already have an account?{" "}
             <Link
               href="/signup?mode=login"
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-foreground underline-offset-4 hover:underline"
             >
               Log in
             </Link>
@@ -174,19 +171,28 @@ function SignUpPageFallback() {
     <div className="space-y-6">
       <div className="h-8 w-64 animate-pulse rounded bg-muted" />
       <div className="space-y-3">
-        <div className="h-10 w-full rounded-md border border-border bg-background" />
+        <div className="h-10 w-full rounded-md border border-border bg-card" />
         <div className="h-10 w-full rounded-md bg-muted" />
       </div>
-      <div className="h-10 w-full rounded-md border border-border" />
+      <div className="h-10 w-full rounded-md border border-border bg-background" />
     </div>
   );
 }
 
 export default function SignUpPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#fafafa]">
-      <Header />
-      <main className="flex flex-1 flex-col items-center justify-center px-4 pt-14 pb-8">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <Header
+        trailing={
+          <Link
+            href="/"
+            className="text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Back to home
+          </Link>
+        }
+      />
+      <main className="flex flex-1 flex-col items-center justify-center px-6 pb-12 pt-6 sm:px-10 lg:px-12">
         <div className="w-full max-w-[400px] space-y-8">
           <Suspense fallback={<SignUpPageFallback />}>
             <AuthForm />

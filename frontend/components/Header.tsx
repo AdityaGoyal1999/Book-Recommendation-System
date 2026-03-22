@@ -1,42 +1,26 @@
 import Link from "next/link";
-import Image from "next/image";
+import type { ReactNode } from "react";
 
-const navLinks = [
-  { href: "#", label: "About us" },
-  { href: "#", label: "Features" },
-  { href: "#", label: "Pricing" },
-  { href: "#", label: "Contact" },
-  { href: "/signup", label: "Sign up" },
-];
+type HeaderProps = {
+  /** Replaces the default “Sign up” pill (e.g. auth page “Back to home”). */
+  trailing?: ReactNode;
+};
 
-export function Header() {
+export function Header({ trailing }: HeaderProps) {
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between px-4">
-        <Link
-          href="/"
-          className="flex items-center gap-2 font-semibold text-foreground transition-colors hover:text-primary"
-        >
-          <Image
-            src="/logo/vector/default-monochrome-black.svg"
-            alt="What to read AI?"
-            width={28}
-            height={28}
-            className="size-7 shrink-0 object-contain"
-          />
-          What to read AI?
+    <header className="w-full border-b border-border pb-6">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 sm:px-10 lg:px-12">
+        <Link href="/" className="text-2xl font-semibold tracking-tight text-foreground">
+          What to read AI
         </Link>
-        <nav className="flex items-center gap-6">
-          {navLinks.map(({ href, label }) => (
-            <Link
-              key={label}
-              href={href}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
+        {trailing ?? (
+          <Link
+            href="/signup"
+            className="rounded-full border border-foreground px-5 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-foreground hover:text-background"
+          >
+            Sign Up
+          </Link>
+        )}
       </div>
     </header>
   );

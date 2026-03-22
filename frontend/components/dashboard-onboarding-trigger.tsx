@@ -35,7 +35,7 @@ export function DashboardOnboardingTrigger() {
   }, []);
 
   return (
-    <div className="fixed right-4 top-3 z-50">
+    <div className="fixed right-4 top-3 z-50 rounded-md border border-border bg-background/95 p-0.5 shadow-sm backdrop-blur-sm">
       <Button type="button" variant="outline" size="sm" onClick={handleStartOnboarding}>
         Demo App
       </Button>
