@@ -21,7 +21,7 @@ export default function UsagePage() {
   const [numScans, setNumScans] = useState<number>(0);
   const [nextBillingDate, setNextBillingDate] = useState<string | null>(null);
 
-  const { start, end } = useMemo(() => getMonthWindow(new Date()), []);
+  const { end } = useMemo(() => getMonthWindow(new Date()), []);
 
   useEffect(() => {
     const loadUsage = async () => {
@@ -94,7 +94,7 @@ export default function UsagePage() {
               renewsOn={nextBillingDate ? new Date(nextBillingDate) : end}
             />
           ) : (
-            <FreeUsageCard used={numScans} resetOn={end} />
+            <FreeUsageCard used={numScans} />
           )
         )}
       </div>

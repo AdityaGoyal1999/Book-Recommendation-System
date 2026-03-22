@@ -96,7 +96,7 @@ function BillingPageContent() {
     }
   }
 
-  const { start, end } = useMemo(() => getMonthWindow(new Date()), []);
+  const { end } = useMemo(() => getMonthWindow(new Date()), []);
 
   const loadBilling = async () => {
     setLoading(true);

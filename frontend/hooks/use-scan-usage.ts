@@ -28,7 +28,10 @@ export function useScanUsage() {
   }, []);
 
   useEffect(() => {
-    void loadUsage();
+    const run = () => {
+      void loadUsage();
+    };
+    queueMicrotask(run);
   }, [loadUsage]);
 
   const limit = isPro ? 50 : 5;

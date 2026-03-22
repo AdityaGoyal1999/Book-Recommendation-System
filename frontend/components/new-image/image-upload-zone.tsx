@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ClipboardPaste, ImagePlus, Loader2, Upload, X } from "lucide-react";
@@ -56,11 +57,14 @@ export function ImageUploadZone({
 
       {imageData ? (
         <div className="relative flex min-h-[280px] flex-col items-center justify-center p-6 sm:min-h-[320px]">
-          <div className="relative max-h-[320px] overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-            <img
+          <div className="relative h-[min(320px,70vh)] w-full max-w-full overflow-hidden rounded-lg border border-border bg-background shadow-sm">
+            <Image
               src={imageData}
               alt="Pasted or uploaded preview"
-              className="max-h-[300px] w-auto max-w-full object-contain sm:max-h-[320px]"
+              fill
+              unoptimized
+              className="object-contain"
+              sizes="(max-width: 640px) 100vw, 36rem"
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">

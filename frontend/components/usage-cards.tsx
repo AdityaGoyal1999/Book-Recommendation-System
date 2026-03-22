@@ -37,7 +37,7 @@ function UsageMeter({ used, limit }: { used: number; limit: number }) {
   );
 }
 
-export function FreeUsageCard({ used, resetOn }: { used: number; resetOn: Date }) {
+export function FreeUsageCard({ used }: { used: number }) {
   const limit = 5;
   const remaining = Math.max(0, limit - used);
 

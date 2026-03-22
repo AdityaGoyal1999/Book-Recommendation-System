@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ChevronRight } from "lucide-react";
@@ -210,11 +211,14 @@ export default function HistoryPage() {
                     </p>
                   </div>
 
-                  <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+                  <div className="relative min-h-[180px] overflow-hidden rounded-lg border border-border bg-muted/20">
                     {selectedScan.image_url ? (
-                      <img
+                      <Image
                         src={selectedScan.image_url}
                         alt="Scan capture"
+                        width={1200}
+                        height={900}
+                        unoptimized
                         className="h-auto max-h-[340px] w-full object-contain"
                       />
                     ) : (
