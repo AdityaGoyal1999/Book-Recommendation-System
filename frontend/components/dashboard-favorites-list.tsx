@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -12,13 +11,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { RefreshCcw } from "lucide-react";
+import { BookCoverThumb } from "@/components/favorites/book-cover-thumb";
+import { openLibraryCoverUrlMedium } from "@/lib/open-library";
 
- type FavoriteBook = {
-   id: string;
-   title: string;
-   author: string;
-   coverUrl?: string | null;
- };
+type FavoriteBook = {
+  id: string;
+  title: string;
+  author: string;
+  coverUrl?: string | null;
+};
 
 type FavoriteBookPayload = {
   key?: unknown;
@@ -30,8 +31,6 @@ type FavoriteBookPayload = {
 type GetFavoritesResponse = {
   favorite_books?: FavoriteBookPayload[];
 };
-
-const placeholderFavorites: FavoriteBook[] = [];
 
 export function FavoritesListSection() {
   const [favorites, setFavorites] = useState<FavoriteBook[] | null>(null);
@@ -83,9 +82,7 @@ export function FavoritesListSection() {
                 ? b.authors.join(", ")
                 : "Unknown author",
             coverUrl:
-              typeof b.coverId === "number"
-                ? `https://covers.openlibrary.org/b/id/${b.coverId}-M.jpg`
-                : null,
+              typeof b.coverId === "number" ? openLibraryCoverUrlMedium(b.coverId) : null,
           }))
         : [];
 
@@ -103,11 +100,10 @@ export function FavoritesListSection() {
     fetchFavorites();
   }, []);
 
-  const items =
-    favorites && favorites.length > 0 ? favorites : placeholderFavorites;
+  const items = favorites?.length ? favorites : [];
 
-   return (
-     <section aria-labelledby="favorites-list-heading" className="space-y-3">
+  return (
+    <section aria-labelledby="favorites-list-heading" className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
         <div>
           <h2
@@ -158,19 +154,7 @@ export function FavoritesListSection() {
           >
             <CardHeader className="space-y-1 pb-2">
               <div className="flex items-start gap-3">
-                <div className="relative mt-0.5 h-14 w-10 shrink-0 overflow-hidden rounded-sm border border-border/60 bg-muted">
-                  {book.coverUrl ? (
-                    <Image
-                      src={book.coverUrl}
-                      alt={`Cover of ${book.title}`}
-                      fill
-                      sizes="40px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full" aria-hidden="true" />
-                  )}
-                </div>
+                <BookCoverThumb src={book.coverUrl ?? null} title={`Cover of ${book.title}`} />
                 <div className="min-w-0 flex-1">
                   <CardTitle className="line-clamp-2 text-sm font-semibold">
                  {book.title}

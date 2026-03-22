@@ -3,12 +3,13 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { DASHBOARD_ONBOARDING_START_EVENT } from "@/lib/dashboard-onboarding-events";
 
 export function DashboardOnboardingTrigger() {
   const autoStartedRef = useRef(false);
 
   const handleStartOnboarding = () => {
-    window.dispatchEvent(new Event("book:onboarding-start"));
+    window.dispatchEvent(new Event(DASHBOARD_ONBOARDING_START_EVENT));
   };
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export function DashboardOnboardingTrigger() {
         const isOnboarded = data?.is_onboarded === true;
         if (!isOnboarded) {
           autoStartedRef.current = true;
-          window.dispatchEvent(new Event("book:onboarding-start"));
+          window.dispatchEvent(new Event(DASHBOARD_ONBOARDING_START_EVENT));
         }
       } catch {
         // Ignore

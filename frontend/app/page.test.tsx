@@ -1,36 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import Home from "./page";
 
-vi.mock("@/components/Header", () => ({
-  Header: () => <div>Header</div>,
-}));
-vi.mock("@/components/Hero", () => ({
-  Hero: () => <div>Hero</div>,
-}));
-vi.mock("@/components/Features", () => ({
-  Features: () => <div>Features</div>,
-}));
-vi.mock("@/components/ProblemAndSolution", () => ({
-  ProblemAndSolution: () => <div>ProblemAndSolution</div>,
-}));
-vi.mock("@/components/FAQ", () => ({
-  FAQ: () => <div>FAQ</div>,
-}));
-vi.mock("@/components/Footer", () => ({
-  Footer: () => <div>Footer</div>,
-}));
-
 describe("Home page", () => {
-  it("renders the landing page sections", () => {
+  it("renders branding and primary calls to action", () => {
     render(<Home />);
 
-    expect(screen.getByText("Header")).toBeInTheDocument();
-    expect(screen.getByText("Hero")).toBeInTheDocument();
-    expect(screen.getByText("Features")).toBeInTheDocument();
-    expect(screen.getByText("ProblemAndSolution")).toBeInTheDocument();
-    expect(screen.getByText("FAQ")).toBeInTheDocument();
-    expect(screen.getByText("Footer")).toBeInTheDocument();
+    expect(screen.getAllByText("What to read AI").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/Welcome to What to read AI/);
+    expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");
+    expect(screen.getAllByRole("link", { name: /sign up/i }).length).toBeGreaterThan(0);
   });
 });
-

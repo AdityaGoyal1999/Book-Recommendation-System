@@ -1,135 +1,19 @@
-import Link from "next/link";
-import Image from "next/image";
-
-const steps = [
-  {
-    number: "01",
-    title: "Tell us what you like",
-    description:
-      "Share your favorite genres, authors, and reading goals so we can understand your taste.",
-  },
-  {
-    number: "02",
-    title: "Get AI-powered picks",
-    description:
-      "Our engine analyzes your preferences and curates a short list of books tailored just for you.",
-  },
-  {
-    number: "03",
-    title: "Save and start reading",
-    description:
-      "Bookmark the recommendations you love and begin your next read with confidence.",
-  },
-];
+import { HomeFooter } from "@/components/home/home-footer";
+import { HomeHeader } from "@/components/home/home-header";
+import { HomeHero } from "@/components/home/home-hero";
+import { ProblemSection } from "@/components/home/problem-section";
+import { StepsSection } from "@/components/home/steps-section";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#efeeed] text-[#0e0e0f]">
       <main className="mx-auto w-full max-w-6xl px-6 py-8 sm:px-10 lg:px-12">
-        <header className="flex items-center justify-between border-b border-black/15 pb-6">
-          <Link href="/" className="text-2xl font-semibold tracking-tight">
-            What to read AI
-          </Link>
-
-          <Link
-            href="/signup"
-            className="rounded-full border border-black px-5 py-2 text-sm font-semibold transition-colors hover:bg-black hover:text-white"
-          >
-            Sign Up
-          </Link>
-        </header>
-
-        <section className="grid gap-10 border-b border-black/15 py-12 md:grid-cols-2 md:items-center">
-          <div className="space-y-7">
-            <h1 className="max-w-md text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
-              Welcome to What to read AI where you can find the best books for you.
-            </h1>
-            <p className="max-w-md text-lg leading-relaxed text-black/70">
-              Explore the best books for you in no time.
-            </p>
-            <Link
-              href="/signup"
-              className="inline-flex rounded-xl bg-black px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-black/85"
-            >
-              Get Started
-            </Link>
-          </div>
-
-          <div className="relative mx-auto flex h-[500px] w-full max-w-[500px] items-center justify-center overflow-hidden p-4">
-            <Image
-              src="/hero-image.svg"
-              alt="Reader discovering personalized book recommendations"
-              width={500}
-              height={500}
-              className="h-full w-full object-contain"
-              priority
-            />
-          </div>
-        </section>
-
-        <section className="py-14 border-b border-black/15 ">
-          <div className="rounded-3xl border border-black/10 bg-white/55 px-8 py-12 text-center sm:px-12">
-            <h2 className="text-4xl font-semibold tracking-tight">
-              Have you ever walked into a bookstore and felt overwhelmed by
-              hundreds of books in front of you?
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-black/70">
-              What to read AI cuts through the noise with personalized
-              recommendations, so you can quickly find your next favorite read.
-            </p>
-          </div>
-        </section>
-
-        <section className="pb-14 py-14">
-          <div className="rounded-3xl px-6 py-10 sm:px-10">
-            <div className="text-center">
-              <h2 className="text-4xl font-semibold tracking-tight">
-                Get personalized recommendations in 3 simple steps
-              </h2>
-              <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-black/70">
-                A quick and guided flow that helps you discover books that match
-                your taste.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {steps.map((step) => (
-                <article
-                  key={step.number}
-                  className="rounded-2xl border border-black/15 bg-[#efeeed] p-6"
-                >
-                  <p className="text-sm font-semibold tracking-[0.2em] text-black/60">
-                    {step.number}
-                  </p>
-                  <h3 className="mt-3 text-2xl font-semibold leading-tight">
-                    {step.title}
-                  </h3>
-                  <p className="mt-3 text-base leading-relaxed text-black/70">
-                    {step.description}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+        <HomeHeader />
+        <HomeHero />
+        <ProblemSection />
+        <StepsSection />
       </main>
-
-      <footer className="border-t border-black/15">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 sm:px-10 lg:flex-row lg:items-center lg:justify-between lg:px-12">
-          <div>
-            <p className="text-xl font-semibold tracking-tight">What to read AI</p>
-            <p className="mt-2 text-sm text-black/65">
-              Personalized book recommendations to help you pick your next read.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-sm text-black/70">
-            <Link href="/signup" className="transition-colors hover:text-black">
-              Sign Up
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <HomeFooter />
     </div>
   );
 }

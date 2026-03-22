@@ -1,307 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { ImagePlus, ClipboardPaste, X, Upload, Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-
-const STORAGE_BUCKET = "book_scans";
-
-function UsageProgressBar({ used, limit }: { used: number; limit: number }) {
-  const remaining = Math.max(0, limit - used);
-  const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{used} / {limit} scans</span>
-        <span>{remaining} remaining</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={cn(
-            "h-full rounded-full transition-[width] duration-300",
-            used >= limit ? "bg-destructive" : "bg-primary"
-          )}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-type RecommendedBook = {
-  title: string;
-  author: string | null;
-  reason: string;
-};
-
-function isHeicFile(file: File): boolean {
-  const type = file.type.toLowerCase();
-  const name = file.name.toLowerCase();
-  return (
-    type === "image/heic" ||
-    type === "image/heif" ||
-    name.endsWith(".heic") ||
-    name.endsWith(".heif")
-  );
-}
-
-function isAllowedImageFile(file: File): boolean {
-  const type = file.type.toLowerCase();
-  const name = file.name.toLowerCase();
-  return (
-    type === "image/jpeg" ||
-    type === "image/jpg" ||
-    type === "image/png" ||
-    type === "image/heic" ||
-    type === "image/heif" ||
-    name.endsWith(".jpg") ||
-    name.endsWith(".jpeg") ||
-    name.endsWith(".png") ||
-    name.endsWith(".heic") ||
-    name.endsWith(".heif")
-  );
-}
-
-async function convertHeicToJpeg(file: File): Promise<File> {
-  const { default: heic2any } = await import("heic2any");
-  const converted = await heic2any({
-    blob: file,
-    toType: "image/jpeg",
-    quality: 0.9,
-  });
-
-  const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
-  if (!(jpegBlob instanceof Blob)) {
-    throw new Error("HEIC conversion failed.");
-  }
-
-  const baseName = file.name.replace(/\.(heic|heif)$/i, "") || "image";
-  return new File([jpegBlob], `${baseName}.jpg`, {
-    type: "image/jpeg",
-    lastModified: Date.now(),
-  });
-}
+import { ImageUploadZone } from "@/components/new-image/image-upload-zone";
+import { RecommendedBooksPanel } from "@/components/new-image/recommended-books-panel";
+import { ScanUsageCountsBar } from "@/components/scan-usage-counts-bar";
+import { useNewImageUpload } from "@/hooks/use-new-image-upload";
+import { useScanUsage } from "@/hooks/use-scan-usage";
 
 export default function NewImagePage() {
-  const [imageData, setImageData] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-  const [recommendedBooks, setRecommendedBooks] = useState<RecommendedBook[]>([]);
-  const [noRecommendations, setNoRecommendations] = useState(false);
-  const [noRecommendationsMessage, setNoRecommendationsMessage] = useState<string | null>(null);
-  const [numScans, setNumScans] = useState<number>(0);
-  const [isPro, setIsPro] = useState<boolean>(false);
-
-  const loadUsage = useCallback(async () => {
-    try {
-      const supabase = createClient();
-      const { data: userData } = await supabase.auth.getUser();
-      const user = userData?.user ?? null;
-      if (!user?.id) return;
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("is_pro, num_scans, created_at")
-        .eq("id", user.id)
-        .single();
-
-      setIsPro(typeof profileData?.is_pro === "boolean" ? profileData.is_pro : false);
-      setNumScans(typeof profileData?.num_scans === "number" ? profileData.num_scans : 0);
-    } catch {
-      // Ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadUsage();
-  }, [loadUsage]);
-
-  const limit = isPro ? 50 : 5;
-
-  const processFile = useCallback(async (file: File) => {
-    setError(null);
-    setUploadedUrl(null);
-    setRecommendedBooks([]);
-    setNoRecommendations(false);
-    setNoRecommendationsMessage(null);
-    // Always reset previous selection first so invalid files cannot be uploaded.
-    setSelectedFile(null);
-    setImageData(null);
-
-    if (!isAllowedImageFile(file)) {
-      setError("Please upload a JPG, JPEG, PNG, or HEIC image.");
-      return;
-    }
-    let normalizedFile = file;
-    try {
-      if (isHeicFile(file)) {
-        normalizedFile = await convertHeicToJpeg(file);
-      }
-    } catch {
-      setError("Could not convert HEIC image. Please try another photo.");
-      return;
-    }
-
-    setSelectedFile(normalizedFile);
-    const reader = new FileReader();
-    reader.onload = () => setImageData(reader.result as string);
-    reader.onerror = () => setError("Failed to read the image.");
-    reader.readAsDataURL(normalizedFile);
-  }, []);
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      const item = e.clipboardData?.items?.[0];
-      if (item?.kind === "file") {
-        const file = item.getAsFile();
-        if (file) void processFile(file);
-      }
-    },
-    [processFile]
-  );
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file) void processFile(file);
-    },
-    [processFile]
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) void processFile(file);
-      e.target.value = "";
-    },
-    [processFile]
-  );
-
-  const clearImage = useCallback(() => {
-    setImageData(null);
-    setSelectedFile(null);
-    setError(null);
-    setUploadedUrl(null);
-    setRecommendedBooks([]);
-    setNoRecommendations(false);
-    setNoRecommendationsMessage(null);
-  }, []);
-
-  const uploadToSupabase = useCallback(async () => {
-    if (!imageData || !selectedFile) return;
-    if (!isAllowedImageFile(selectedFile)) {
-      setError("Only JPG, JPEG, PNG, and HEIC files are supported.");
-      return;
-    }
-    setError(null);
-    setUploading(true);
-    try {
-      const supabase = createClient();
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !user) {
-        setError("You must be signed in to upload.");
-        return;
-      }
-      const ext = selectedFile.name.split(".").pop() || "jpg";
-      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(path, selectedFile, {
-          contentType: selectedFile.type,
-          upsert: false,
-        });
-      if (uploadError) {
-        setError(uploadError.message || "Upload failed.");
-        return;
-      }
-      // Private bucket: use a signed URL (valid 1 hour) so the link works with RLS
-      const { data: signed, error: signedError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .createSignedUrl(path, 3600);
-
-      if (signedError) {
-        setError(signedError.message || "Upload succeeded but could not create view link.");
-        return;
-      }
-
-      const { data: processingData, error: processingError } = await supabase.functions.invoke(
-        "image-processing",
-        {
-          body: {
-            bucket_id: STORAGE_BUCKET,
-            object_path: path,
-          },
-        }
-      );
-
-      if (processingError) {
-        setError(processingError.message || "Image processing failed.");
-        setUploadedUrl(signed?.signedUrl ?? null);
-        return;
-      }
-
-      const serverMessage =
-        typeof processingData?.message === "string" ? processingData.message : null;
-
-      const recommendations = Array.isArray(processingData?.recommended_books)
-        ? processingData.recommended_books
-            .map((book: unknown) => {
-              const b = book as {
-                title?: string;
-                author?: string | null;
-                reason?: string;
-              };
-              return {
-                title: typeof b.title === "string" ? b.title.trim() : "",
-                author: typeof b.author === "string" ? b.author.trim() : null,
-                reason: typeof b.reason === "string" ? b.reason.trim() : "",
-              };
-            })
-            .filter((book: RecommendedBook) => book.title.length > 0 && book.reason.length > 0)
-        : [];
-
-      setRecommendedBooks(recommendations);
-      setNoRecommendations(recommendations.length === 0);
-      setNoRecommendationsMessage(
-        recommendations.length === 0
-          ? (serverMessage ??
-              "We could not generate recommendations from this image. Try uploading a clearer shelf photo or one with more visible book titles.")
-          : null
-      );
-      setUploadedUrl(signed?.signedUrl ?? null);
-      void loadUsage();
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  }, [imageData, selectedFile, loadUsage]);
+  const { numScans, limit, loadUsage } = useScanUsage();
+  const upload = useNewImageUpload(loadUsage);
 
   return (
     <div className="flex flex-1 flex-col px-4 py-8">
-      <div className="mx-auto w-full max-w-2xl space-y-6 flex flex-col items-center">
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center space-y-6">
         <div>
           <h1 className="font-sans text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Upload a photo of a bookstore shelf
@@ -311,156 +22,41 @@ export default function NewImagePage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-border bg-card px-4 py-3 w-1/2">
-          <UsageProgressBar used={numScans} limit={limit} />
+        <div className="w-1/2 rounded-lg border border-border bg-card px-4 py-3">
+          <ScanUsageCountsBar used={numScans} limit={limit} />
         </div>
 
-        <div
-          className={cn(
-            "relative mx-auto max-w-xl rounded-xl border-2 border-dashed transition-colors",
-            "bg-muted/30 focus-within:ring-3 focus-within:ring-ring/50 focus-within:border-ring",
-            isDragging && "border-primary bg-primary/5",
-            !isDragging && "border-input hover:border-muted-foreground/40",
-            imageData && "border-solid border-input bg-muted/20"
-          )}
-          onPaste={handlePaste}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          tabIndex={0}
-        >
-          <input
-            type="file"
-            accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
-            className="absolute inset-0 cursor-pointer opacity-0"
-            onChange={handleFileInput}
-            aria-label="Upload image"
-          />
+        <ImageUploadZone
+          imageData={upload.imageData}
+          isDragging={upload.isDragging}
+          uploading={upload.uploading}
+          uploadedUrl={upload.uploadedUrl}
+          onPaste={upload.handlePaste}
+          onDrop={upload.handleDrop}
+          onDragOver={upload.handleDragOver}
+          onDragLeave={upload.handleDragLeave}
+          onFileInput={upload.handleFileInput}
+          onUpload={upload.uploadToSupabase}
+          onClear={upload.clearImage}
+        />
 
-          {imageData ? (
-            <div className="relative flex min-h-[280px] flex-col items-center justify-center p-6 sm:min-h-[320px]">
-              <div className="relative max-h-[320px] overflow-hidden rounded-lg border border-border bg-background shadow-sm">
-                <img
-                  src={imageData}
-                  alt="Pasted or uploaded preview"
-                  className="max-h-[300px] w-auto max-w-full object-contain sm:max-h-[320px]"
-                />
-              </div>
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="gap-2"
-                  onClick={uploadToSupabase}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Upload className="size-4" />
-                  )}
-                  {uploading ? "Uploading…" : "Get Recommendations"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={clearImage}
-                  disabled={uploading}
-                >
-                  <X className="size-4" />
-                  Clear image
-                </Button>
-              </div>
-              {uploadedUrl && (
-                <p className="mt-3 max-w-full truncate text-center text-sm text-muted-foreground">
-                  Uploaded.{" "}
-                  <a
-                    href={uploadedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-2"
-                  >
-                    Open image
-                  </a>{" "}
-                  <span className="text-muted-foreground/80">(link expires in 1 hour)</span>
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 p-8 text-center sm:min-h-[320px]">
-              <div className="rounded-full border border-border bg-background p-4 shadow-sm">
-                <ImagePlus className="size-10 text-muted-foreground" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">
-                  Paste or drop your image
-                </p>
-                <p className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                  <kbd className="rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs">
-                    Ctrl
-                  </kbd>
-                  <span>+</span>
-                  <kbd className="rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs">
-                    V
-                  </kbd>
-                  <span className="hidden sm:inline">, or click to browse</span>
-                </p>
-              </div>
-              <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-muted-foreground">
-                <ClipboardPaste className="size-4 shrink-0" />
-                <span className="text-sm">Supported: JPG, JPEG, PNG, HEIC</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {error && (
+        {upload.error && (
           <div
             role="alert"
             className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
           >
-            {error}
+            {upload.error}
           </div>
         )}
 
-        {noRecommendations && !error && (
+        {upload.noRecommendations && !upload.error && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-            {noRecommendationsMessage ??
+            {upload.noRecommendationsMessage ??
               "We could not generate recommendations from this image. Try uploading a clearer shelf photo or one with more visible book titles."}
           </div>
         )}
 
-        {recommendedBooks.length > 0 && (
-          <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground sm:text-xl">
-                Recommended for you
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Based on your shelf photo, favorites, and genre preferences.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {recommendedBooks.map((book, idx) => (
-                <article
-                  key={`${book.title}-${idx}`}
-                  className="rounded-lg border border-border/80 bg-background px-4 py-3"
-                >
-                  <p className="font-medium text-foreground">
-                    {idx + 1}. {book.title}
-                    {book.author ? (
-                      <span className="font-normal text-muted-foreground"> by {book.author}</span>
-                    ) : null}
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">{book.reason}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <RecommendedBooksPanel books={upload.recommendedBooks} />
       </div>
     </div>
   );

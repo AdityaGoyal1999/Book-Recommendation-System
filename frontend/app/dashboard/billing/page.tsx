@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CreditCard } from "lucide-react";
@@ -24,7 +24,7 @@ function formatDate(date: Date) {
   });
 }
 
-export default function BillingPage() {
+function BillingPageContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -257,5 +257,21 @@ export default function BillingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 flex-col px-4 py-8">
+          <div className="mx-auto w-full max-w-2xl rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            Loading billing...
+          </div>
+        </div>
+      }
+    >
+      <BillingPageContent />
+    </Suspense>
   );
 }
