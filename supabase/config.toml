@@ -389,7 +389,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.hello-world]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/hello-world/deno.json"
 entrypoint = "./functions/hello-world/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
@@ -398,49 +398,49 @@ entrypoint = "./functions/hello-world/index.ts"
 
 [functions.save-favorites]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/save-favorites/deno.json"
 entrypoint = "./functions/save-favorites/index.ts"
 
 [functions.get-favorites]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/get-favorites/deno.json"
 entrypoint = "./functions/get-favorites/index.ts"
 
 [functions.image-processing]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/image-processing/deno.json"
 entrypoint = "./functions/image-processing/index.ts"
 
 [functions.save-genre-preferences]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/save-genre-preferences/deno.json"
 entrypoint = "./functions/save-genre-preferences/index.ts"
 
 [functions.get-genre-preferences]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/get-genre-preferences/deno.json"
 entrypoint = "./functions/get-genre-preferences/index.ts"
 
 [functions.get-previous-scans]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/get-previous-scans/deno.json"
 entrypoint = "./functions/get-previous-scans/index.ts"
 
 [functions.search-books]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/search-books/deno.json"
 entrypoint = "./functions/search-books/index.ts"
 
 [functions.create-stripe-checkout]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/create-stripe-checkout/deno.json"
 entrypoint = "./functions/create-stripe-checkout/index.ts"
 
@@ -452,12 +452,12 @@ entrypoint = "./functions/stripe-webhook/index.ts"
 
 [functions.create-stripe-portal]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/create-stripe-portal/deno.json"
 entrypoint = "./functions/create-stripe-portal/index.ts"
 
 [functions.get-onboarding-status]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/get-onboarding-status/deno.json"
 entrypoint = "./functions/get-onboarding-status/index.ts"
